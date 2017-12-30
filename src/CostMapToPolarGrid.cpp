@@ -28,6 +28,7 @@ void CostMapToPolarGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
     geometry_msgs::PointStamped base_point;
     std::vector<float> polar_radius;
     std::vector<float> polar_angle;
+    std::vector<float> polar_value;
    
     ROS_INFO("New costmap");
     if(grid_map::GridMapRosConverter::fromOccupancyGrid(data_in, "costmap", map) == false) {
@@ -44,7 +45,7 @@ void CostMapToPolarGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
 	    continue;
 	}
 	value = map.at("costmap", index);
-	if(value >= this->obstacle_marker_) {
+	if(value >= 0.0f) {
 
 	    map_point.header.frame_id = data_in.header.frame_id;
 	    map_point.point.x = position(0);
@@ -53,12 +54,15 @@ void CostMapToPolarGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
 	    
 	    try {
 		this->listener.transformPoint(this->polar_frame_id_, map_point, base_point);
-
-		angle  = atan2(base_point.point.y, base_point.point.x);
-		radius = hypot(base_point.point.x, base_point.point.y); 
-		polar_radius.push_back(radius);
-		polar_angle.push_back(angle);
-		ROS_INFO("Obstacle at: (%f, %f) [m, deg]", radius, angle*180.0f/M_PI);
+		
+		if(base_point.point.x >= 0) {
+		    angle  = atan2(base_point.point.y, base_point.point.x);
+		    radius = hypot(base_point.point.x, base_point.point.y); 
+		    polar_radius.push_back(radius);
+		    polar_angle.push_back(angle);
+		    polar_value.push_back(value/100.0f);
+		    ROS_INFO("Obstacle at: (%f, %f) [m, deg]", radius, angle*180.0f/M_PI);
+		}
 	    } catch(tf::TransformException& ex) {
 		ROS_ERROR("Cannot transform map to base point: %s", ex.what());
 	    }
@@ -72,6 +76,7 @@ void CostMapToPolarGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
     data_out.header.stamp = ros::Time::now();
     data_out.radius = polar_radius;
     data_out.angle  = polar_angle;
+    data_out.value  = polar_value;
 	
     this->pub_.publish(data_out);
 }
