@@ -2,7 +2,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 cmake_minimum_required(VERSION 2.8.3)
 project(cnbiros_wheelchair_navigation)
 
-find_package(catkin REQUIRED COMPONENTS roscpp actionlib std_msgs nav_msgs message_generation grid_map_ros tf)
+find_package(catkin REQUIRED COMPONENTS roscpp actionlib std_msgs nav_msgs message_generation grid_map_ros tf costmap_2d)
 
 SET(CMAKE_BUILD_TYPE RelWithDebInfo)
 
@@ -11,6 +11,7 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 add_message_files(
 	FILES
 	PolarGrid.msg
+	SectorGrid.msg
 )
 
 generate_messages(

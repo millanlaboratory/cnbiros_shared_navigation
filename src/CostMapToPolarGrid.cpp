@@ -8,16 +8,72 @@ namespace cnbiros {
 
 CostMapToPolarGrid::CostMapToPolarGrid(void) : private_nh_("~"), listener(ros::Duration(10)) {
 
+
+    unsigned int nsectors;
+    float sector_min_angle, sector_max_angle;
+
     this->obstacle_marker_ = 90.0f;
     this->polar_frame_id_ = "base_link";
     this->stopic_ = "/move_base/local_costmap/costmap";
     this->ptopic_ = "/polar";
 
-    this->sub_ = this->nh_.subscribe(this->stopic_, 50, &CostMapToPolarGrid::callback, this);
-    this->pub_ = this->nh_.advertise<cnbiros_wheelchair_navigation::PolarGrid>(this->ptopic_, 1000);
+    // Get sector parameters and initialize sector vector
+    nsectors	     = 8;
+    sector_min_angle = -M_PI/2.0f;
+    sector_max_angle = M_PI/2.0f;
+    this->init_sectors(nsectors, sector_min_angle, sector_max_angle);
+
+    // Initialize subscriber and publisher
+    this->sub_ = this->nh_.subscribe(this->stopic_, 50, 
+				    &CostMapToPolarGrid::callback, this);
+    this->pub_ = this->nh_.advertise<cnbiros_wheelchair_navigation::SectorGrid>(
+				    this->ptopic_, 1000);
+//    this->pub_ = this->nh_.advertise<cnbiros_wheelchair_navigation::PolarGrid>(
+//				    this->ptopic_, 1000);
 }
 
 CostMapToPolarGrid::~CostMapToPolarGrid(void) {}
+
+void CostMapToPolarGrid::init_sectors(unsigned int nsectors, float min_angle, float max_angle) {
+
+    float sector_step;
+
+    sector_step_ = (max_angle - min_angle)/(float)nsectors;
+
+    // Initialize sector vector
+    this->sectors_.reserve(nsectors);
+    this->sectors_.assign(nsectors, std::numeric_limits<float>::infinity());
+
+    // Store sector parameters
+    this->nsectors_	    = nsectors;
+    this->sector_min_angle_ = min_angle;
+    this->sector_max_angle_ = max_angle;
+    this->sector_step_	    = sector_step_;
+}
+
+void CostMapToPolarGrid::fill_sectors(float angle, float radius) {
+
+    unsigned int idsector;
+    float cvalue;
+   
+    // Determin the current sector, given the angle
+    idsector = std::floor(angle/this->sector_step_);
+
+    //printf("angle: %f\n", angle);
+    //printf("step: %f\n", this->sector_step_);
+    //printf("Id sector: %u\n", idsector);
+    // Get the current value of the sector
+    cvalue = this->sectors_.at(idsector);
+
+    // Replace the value of the sector with the minimum between the current
+    // value and the given radius
+    this->sectors_.at(idsector) = std::min(cvalue, radius);
+}
+
+void CostMapToPolarGrid::reset_sectors(void) {
+    this->sectors_.clear();
+    this->sectors_.assign(this->nsectors_, std::numeric_limits<float>::infinity());
+}
 
 void CostMapToPolarGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
 
@@ -26,15 +82,15 @@ void CostMapToPolarGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
     float radius, angle;
     geometry_msgs::PointStamped map_point;
     geometry_msgs::PointStamped base_point;
-    std::vector<float> polar_radius;
-    std::vector<float> polar_angle;
-    std::vector<float> polar_value;
    
     ROS_INFO("New costmap");
     if(grid_map::GridMapRosConverter::fromOccupancyGrid(data_in, "costmap", map) == false) {
 	ROS_ERROR("Cannot convert occupancy grid to grid map");
 	return;
     }
+
+    // Resetting current sectors
+    this->reset_sectors();
 
     grid_map::Position position;
     grid_map::Matrix& data = map["costmap"];
@@ -45,7 +101,7 @@ void CostMapToPolarGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
 	    continue;
 	}
 	value = map.at("costmap", index);
-	if(value >= 0.0f) {
+	if(value >= 90.0f) {
 
 	    map_point.header.frame_id = data_in.header.frame_id;
 	    map_point.point.x = position(0);
@@ -56,28 +112,41 @@ void CostMapToPolarGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
 		this->listener.transformPoint(this->polar_frame_id_, map_point, base_point);
 		
 		if(base_point.point.x >= 0) {
-		    angle  = atan2(base_point.point.y, base_point.point.x);
+		    angle  = atan2(base_point.point.x, -base_point.point.y);
 		    radius = hypot(base_point.point.x, base_point.point.y); 
-		    polar_radius.push_back(radius);
-		    polar_angle.push_back(angle);
-		    polar_value.push_back(value/100.0f);
-		    ROS_INFO("Obstacle at: (%f, %f) [m, deg]", radius, angle*180.0f/M_PI);
+
+		    this->fill_sectors(angle, radius);
 		}
 	    } catch(tf::TransformException& ex) {
 		ROS_ERROR("Cannot transform map to base point: %s", ex.what());
 	    }
 	}
-
-	
     }
 
-    cnbiros_wheelchair_navigation::PolarGrid data_out;
+    unsigned int i = 0;
+    float sector_lower, sector_upper, sector_value;
+    for(auto it=this->sectors_.begin(); it!=this->sectors_.end(); ++it) {
+	sector_lower = (this->sector_min_angle_ + i*this->sector_step_)*180.0f/M_PI;
+	sector_upper = sector_lower + this->sector_step_*180.0f/M_PI;
+	sector_value = (*it);
+    
+	ROS_INFO("Sector grid %u [%2.1f<->%2.1f]: %f [m]", i, sector_lower, 
+			    sector_upper, sector_value); 
+	i++;
+    }
+
+
+    cnbiros_wheelchair_navigation::SectorGrid data_out;
+
     data_out.header.frame_id = this->polar_frame_id_;
-    data_out.header.stamp = ros::Time::now();
-    data_out.radius = polar_radius;
-    data_out.angle  = polar_angle;
-    data_out.value  = polar_value;
-	
+    data_out.header.stamp    = ros::Time::now();
+
+    data_out.values	 = this->sectors_;
+    data_out.min_angle	 = this->sector_min_angle_;
+    data_out.max_angle	 = this->sector_max_angle_;
+    data_out.nsectors	 = this->nsectors_;
+    data_out.step	 = this->sector_step_;
+
     this->pub_.publish(data_out);
 }
 
