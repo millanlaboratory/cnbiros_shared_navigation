@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+	<!-- Costmap parameters -->
+	<rosparam file="$(find cnbiros_wheelchair_navigation)/params/costmap_common_params.yaml" command="load" ns="global_costmap" />
+	<rosparam file="$(find cnbiros_wheelchair_navigation)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+	<rosparam file="$(find cnbiros_wheelchair_navigation)/params/costmap_global_params.yaml" command="load" />
+	<rosparam file="$(find cnbiros_wheelchair_navigation)/params/costmap_local_params.yaml" command="load" />
+
+	<!-- Planner parameters -->
+	<rosparam file="$(find cnbiros_wheelchair_navigation)/params/planner_local_params.yaml" command="load" />
+
+	<!-- Recovery behaviour parameters -->
+	<rosparam file="$(find cnbiros_wheelchair_navigation)/params/recovery_params.yaml" command="load"/>
+  </node>
+</launch>
