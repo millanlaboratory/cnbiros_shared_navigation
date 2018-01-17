@@ -1,5 +1,5 @@
-#ifndef CNBIROS_NAVIGATION_COSTMAP_TO_POLARGRID_HPP
-#define CNBIROS_NAVIGATION_COSTMAP_TO_POLARGRID_HPP
+#ifndef CNBIROS_NAVIGATION_COSTMAP_TO_SECTORGRID_HPP
+#define CNBIROS_NAVIGATION_COSTMAP_TO_SECTORGRID_HPP
 
 #include <cmath>
 #include <limits>
@@ -15,11 +15,11 @@
 namespace cnbiros {
     namespace navigation {
 
-class CostMapToPolarGrid {
+class CostMapToSectorGrid {
 
     public:
-	CostMapToPolarGrid(void);
-	virtual ~CostMapToPolarGrid(void);
+	CostMapToSectorGrid(void);
+	virtual ~CostMapToSectorGrid(void);
 	
     protected:
 	virtual void callback(const nav_msgs::OccupancyGrid& data_in);

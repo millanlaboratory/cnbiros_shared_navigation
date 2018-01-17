@@ -1,12 +1,12 @@
-#ifndef CNBIROS_NAVIGATION_COSTMAP_TO_POLARGRID_CPP
-#define CNBIROS_NAVIGATION_COSTMAP_TO_POLARGRID_CPP
+#ifndef CNBIROS_NAVIGATION_COSTMAP_TO_SECTORGRID_CPP
+#define CNBIROS_NAVIGATION_COSTMAP_TO_SECTORGRID_CPP
 
-#include "cnbiros_wheelchair_navigation/CostMapToPolarGrid.hpp"
+#include "cnbiros_wheelchair_navigation/CostMapToSectorGrid.hpp"
 
 namespace cnbiros {
     namespace navigation {
 
-CostMapToPolarGrid::CostMapToPolarGrid(void) : private_nh_("~"), listener(ros::Duration(10)) {
+CostMapToSectorGrid::CostMapToSectorGrid(void) : private_nh_("~"), listener(ros::Duration(10)) {
 
 
     unsigned int nsectors;
@@ -25,16 +25,16 @@ CostMapToPolarGrid::CostMapToPolarGrid(void) : private_nh_("~"), listener(ros::D
 
     // Initialize subscriber and publisher
     this->sub_ = this->nh_.subscribe(this->stopic_, 50, 
-				    &CostMapToPolarGrid::callback, this);
+				    &CostMapToSectorGrid::callback, this);
     this->pub_ = this->nh_.advertise<cnbiros_wheelchair_navigation::SectorGrid>(
 				    this->ptopic_, 1000);
 //    this->pub_ = this->nh_.advertise<cnbiros_wheelchair_navigation::PolarGrid>(
 //				    this->ptopic_, 1000);
 }
 
-CostMapToPolarGrid::~CostMapToPolarGrid(void) {}
+CostMapToSectorGrid::~CostMapToSectorGrid(void) {}
 
-void CostMapToPolarGrid::init_sectors(unsigned int nsectors, float min_angle, float max_angle) {
+void CostMapToSectorGrid::init_sectors(unsigned int nsectors, float min_angle, float max_angle) {
 
     float sector_step;
 
@@ -51,7 +51,7 @@ void CostMapToPolarGrid::init_sectors(unsigned int nsectors, float min_angle, fl
     this->sector_step_	    = sector_step_;
 }
 
-void CostMapToPolarGrid::fill_sectors(float angle, float radius) {
+void CostMapToSectorGrid::fill_sectors(float angle, float radius) {
 
     unsigned int idsector;
     float cvalue;
@@ -70,12 +70,12 @@ void CostMapToPolarGrid::fill_sectors(float angle, float radius) {
     this->sectors_.at(idsector) = std::min(cvalue, radius);
 }
 
-void CostMapToPolarGrid::reset_sectors(void) {
+void CostMapToSectorGrid::reset_sectors(void) {
     this->sectors_.clear();
     this->sectors_.assign(this->nsectors_, std::numeric_limits<float>::infinity());
 }
 
-void CostMapToPolarGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
+void CostMapToSectorGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
 
     grid_map::GridMap map;
     float value;

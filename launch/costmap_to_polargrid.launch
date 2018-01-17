@@ -1,4 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-  <node pkg="cnbiros_wheelchair_navigation" type="costmap_to_polargrid" output="screen" name="costmap_to_polargrid" />
-</launch>
