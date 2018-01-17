@@ -10,7 +10,7 @@ DynamicGoals::DynamicGoals(void) : private_nh_("~") {
 
     this->client_ = nullptr;
     
-    this->rtopic_ = "/polar";
+    this->rtopic_ = "/sectorgrid";
     this->atopic_ = "/attractors";
     this->server_name_	    = "move_base";
     this->server_timeout_   = 1.0f;
@@ -32,6 +32,9 @@ DynamicGoals::DynamicGoals(void) : private_nh_("~") {
     this->tmppub_ = this->nh_.advertise<geometry_msgs::PoseStamped>(
 				    "/tmp/currpos", 1000);
 
+
+	this->goal_orientation_ = 0.0f;
+	this->goal_position_    = 1.0f;
 }
 
 DynamicGoals::~DynamicGoals(void) {
@@ -49,14 +52,33 @@ void DynamicGoals::WaitForServer(void) {
 
 }
 
-void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& data_in) {
+void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& data) {
 
-    float w = 0.0f;
-    std_srvs::Empty empty;
-    this->rep_data_ = data_in;
-    this->new_costmap_ = true;
+	float nw, np;
 
+    this->sector_data_ = data;
 
+	nw = this->compute_orientation(data);
+	np = this->compute_position(data);
+
+	if(this->client_->isServerConnected() == false) {
+    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->server_name_.c_str());
+    } else {
+	
+		this->client_->cancelGoal();
+
+    	this->goal_.target_pose.header.frame_id  = "base_link";
+    	this->goal_.target_pose.pose.position.x	 = np*cos(nw);
+    	this->goal_.target_pose.pose.position.y	 = np*sin(nw);
+    	this->goal_.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(nw);
+    	this->goal_.target_pose.header.stamp	 = ros::Time::now();
+
+    	ROS_INFO("New goal at %f [cm] / %f [deg]", np, nw*180.0f/M_PI);
+    	this->client_->sendGoal(this->goal_);
+
+		this->goal_orientation_ = nw;
+		this->goal_position_ = np;
+	}
 }
 
 float DynamicGoals::compute_orientation(const cnbiros_wheelchair_navigation::SectorGrid& data) {
@@ -97,7 +119,7 @@ float DynamicGoals::compute_orientation(const cnbiros_wheelchair_navigation::Sec
 
 float DynamicGoals::compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data) {
     
-    float tposition;
+    float tposition = 1.0f;
     float cradius, cangle;
     float width;
     float min_obstacle_distance;
@@ -145,11 +167,11 @@ float DynamicGoals::compute_position(const cnbiros_wheelchair_navigation::Sector
     }
 
     if(obstacle_distance <= MINDIS) {
-	tposition = 0.0f;
+		tposition = 0.0f;
     } else if(std::isinf(obstacle_distance)) {
-	tposition = MAXPOS;
+		tposition = MAXPOS;
     } else {
-	tposition = obstacle_distance*m + q;
+		tposition = obstacle_distance*m + q;
     }
 
 
@@ -190,7 +212,7 @@ bool DynamicGoals::compute_velocity(const cnbiros_wheelchair_navigation::SectorG
     return true;
 }
 */
-
+/*
 void DynamicGoals::Run(void) {
    
     float w, p;
@@ -258,7 +280,7 @@ void DynamicGoals::Run(void) {
     }
 
 }
-
+*/
 
     }
 }

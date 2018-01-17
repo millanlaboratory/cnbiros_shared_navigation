@@ -9,8 +9,15 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 
 add_message_files(
 	FILES
-	PolarGrid.msg
 	SectorGrid.msg
+)
+
+add_service_files(
+  FILES
+  SectorNumber.srv
+  SectorMinAngle.srv
+  SectorMaxAngle.srv
+  SectorThreshold.srv
 )
 
 generate_messages(

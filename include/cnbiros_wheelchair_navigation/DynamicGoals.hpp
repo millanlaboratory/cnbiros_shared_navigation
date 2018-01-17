@@ -22,9 +22,9 @@ class DynamicGoals {
 
 	void WaitForServer(void);
 
-	void Run(void);
+	//void Run(void);
     protected:
-	virtual void callback(const cnbiros_wheelchair_navigation::SectorGrid& data_in);
+	virtual void callback(const cnbiros_wheelchair_navigation::SectorGrid& data);
 	virtual float compute_orientation(const cnbiros_wheelchair_navigation::SectorGrid& data);
 	virtual float compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data);
 	
@@ -40,12 +40,16 @@ class DynamicGoals {
 	ros::Publisher	    tmppub_;
 	ros::ServiceClient  rossrv_;
 	
-	    std::string	    rtopic_;
+	std::string	    rtopic_;
 	std::string	    atopic_;
 	std::string	    server_name_;
 
-	MoveBaseClient*			client_;
-	move_base_msgs::MoveBaseGoal	current_goal_;
+	MoveBaseClient*					client_;
+	move_base_msgs::MoveBaseGoal	goal_;
+	float	goal_orientation_;
+	float	goal_position_;
+
+
 	float				server_timeout_;
 
 	float beta1_;
@@ -56,8 +60,7 @@ class DynamicGoals {
 	float audacity_;
 	float lindecay_;
 
-	bool new_costmap_;
-	cnbiros_wheelchair_navigation::SectorGrid rep_data_;
+	cnbiros_wheelchair_navigation::SectorGrid sector_data_;
 
 
 };
