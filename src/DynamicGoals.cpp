@@ -8,48 +8,66 @@ namespace cnbiros {
 
 DynamicGoals::DynamicGoals(void) : private_nh_("~") {
 
-    this->client_ = nullptr;
+    this->actioncln_ = nullptr;
     
-    this->rtopic_ = "/sectorgrid";
-    this->atopic_ = "/attractors";
-    this->server_name_	    = "move_base";
-    this->server_timeout_   = 1.0f;
+	// Configure node
+	this->configure();
 
-    this->beta1_ = 4.0f;
-    this->beta2_ = 2.0f;
-    this->size_  = 1.0f;
+	// Initialize subscribers
+    this->subobstacles_ = this->nh_.subscribe(this->obstacle_topic_, 50, &DynamicGoals::callback, this);
+    this->subtargets_   = this->nh_.subscribe(this->target_topic_, 50, &DynamicGoals::callback, this);
 
-    this->maxvel_ = 0.6f;
-    this->audacity_ = 100.0f;
-    this->lindecay_ = 0.01f;
+	// Initialize move base client
+    this->actioncln_ = new MoveBaseClient(this->actionsrv_, true);
 
-    this->subrep_ = this->nh_.subscribe(this->rtopic_, 50, &DynamicGoals::callback, this);
-    this->subatt_ = this->nh_.subscribe(this->atopic_, 50, &DynamicGoals::callback, this);
-
-    this->client_ = new MoveBaseClient(this->server_name_, true);
-
-
-    this->tmppub_ = this->nh_.advertise<geometry_msgs::PoseStamped>(
-				    "/tmp/currpos", 1000);
-
-
-	this->goal_orientation_ = 0.0f;
-	this->goal_position_    = 1.0f;
 }
 
 DynamicGoals::~DynamicGoals(void) {
-    if(this->client_ == nullptr)
-	delete this->client_;
+    if(this->actioncln_ == nullptr)
+	delete this->actioncln_;
+}
+
+bool DynamicGoals::configure(void) {
+
+	this->obstacle_strength_ = 4.0f;
+	this->obstacle_decay_    = 2.0f;
+	this->obstacle_topic_	 = "/sectorgrid";
+	this->target_topic_   	 = "/tmpname";
+	this->actionsrv_	  	 = "move_base";
+	this->frame_id_		  	 = "base_link";
+
+	// Getting parameters
+	this->private_nh_.getParam("obstacles",			this->obstacle_topic_);
+	this->private_nh_.getParam("targets",			this->target_topic_);
+	this->private_nh_.getParam("action_server",		this->actionsrv_);
+	this->private_nh_.getParam("frame_id",			this->frame_id_);
+	this->private_nh_.getParam("obstacle_strength", this->obstacle_strength_);
+	this->private_nh_.getParam("obstacle_decay",	this->obstacle_decay_);
+
+	
+	// Compute size
+	this->size_ = 1.0f;
+	
+	
+	ROS_INFO("DynamicGoals frame_id:		    %s", this->frame_id_.c_str());
+	ROS_INFO("DynamicGoals obstacles topic:		%s", this->obstacle_topic_.c_str());
+	ROS_INFO("DynamicGoals target topic:		%s", this->target_topic_.c_str());
+	ROS_INFO("DynamicGoals action server name:	%s", this->actionsrv_.c_str());
+	ROS_INFO("DynamicGoals obstacles strength:	%f", this->obstacle_strength_);
+	ROS_INFO("DynamicGoals obstacles decay:		%f", this->obstacle_decay_);
+
+
+
+
+	return true;
 }
 
 void DynamicGoals::WaitForServer(void) {
 
-    while(!(this->client_->waitForServer(ros::Duration(this->server_timeout_)))) {
-	ROS_INFO_THROTTLE(5.0, "Waiting for %s action server to come up", 
-			       this->server_name_.c_str());
+    while(!(this->actioncln_->waitForServer(ros::Duration(1.0f)))) {
+		ROS_INFO_THROTTLE(5.0, "Waiting for %s action server to come up", this->actionsrv_.c_str());
 	}
-    ROS_INFO("%s action server connected", this->server_name_.c_str());
-
+    ROS_INFO("%s action server connected", this->actionsrv_.c_str());
 }
 
 void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& data) {
@@ -61,23 +79,20 @@ void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& dat
 	nw = this->compute_orientation(data);
 	np = this->compute_position(data);
 
-	if(this->client_->isServerConnected() == false) {
-    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->server_name_.c_str());
+	if(this->actioncln_->isServerConnected() == false) {
+    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
     } else {
 	
-		this->client_->cancelGoal();
+		this->actioncln_->cancelGoal();
 
-    	this->goal_.target_pose.header.frame_id  = "base_link";
+    	this->goal_.target_pose.header.frame_id  = this->frame_id_;
     	this->goal_.target_pose.pose.position.x	 = np*cos(nw);
     	this->goal_.target_pose.pose.position.y	 = np*sin(nw);
     	this->goal_.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(nw);
     	this->goal_.target_pose.header.stamp	 = ros::Time::now();
 
     	ROS_INFO("New goal at %f [cm] / %f [deg]", np, nw*180.0f/M_PI);
-    	this->client_->sendGoal(this->goal_);
-
-		this->goal_orientation_ = nw;
-		this->goal_position_ = np;
+    	this->actioncln_->sendGoal(this->goal_);
 	}
 }
 
@@ -105,7 +120,7 @@ float DynamicGoals::compute_orientation(const cnbiros_wheelchair_navigation::Sec
 	cangle  = sector_min_angle + sector_step*((i-1) + 0.5f);
 	
 	ROS_INFO("Obstacle at: %f degree", cangle*180.0f/M_PI);	
-	clambda = this->beta1_*exp(-(cradius/this->beta2_))/(float)nsectors;
+	clambda = this->obstacle_strength_*exp(-(cradius/this->obstacle_decay_))/(float)nsectors;
 	csigma  = std::atan(std::tan(sector_step/2.0f) + 
 		           this->size_/(this->size_ + cradius));
 	
@@ -226,7 +241,7 @@ void DynamicGoals::Run(void) {
 	r.sleep();
 	
 	
-	if(this->client_->isServerConnected() == false) {
+	if(this->actioncln_->isServerConnected() == false) {
     	    ROS_WARN("%s action server is disconnected. Nothing to do.", this->server_name_.c_str());
 	    continue;
     	}
@@ -265,7 +280,7 @@ void DynamicGoals::Run(void) {
 
 
 	ROS_INFO("Canceling all current goals");
-    	this->client_->cancelAllGoals();
+    	this->actioncln_->cancelAllGoals();
 
     	//ROS_INFO("current velocity goal: %f", v);
     	this->current_goal_.target_pose.header.frame_id = "base_link";
@@ -275,7 +290,7 @@ void DynamicGoals::Run(void) {
 
     	this->current_goal_.target_pose.header.stamp = ros::Time::now();
     	ROS_INFO("Sending new goal");
-    	this->client_->sendGoal(this->current_goal_);
+    	this->actioncln_->sendGoal(this->current_goal_);
 
     }
 
