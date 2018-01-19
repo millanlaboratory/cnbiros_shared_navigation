@@ -1,0 +1,6 @@
+frame_id:           "base_link"
+obstacles:          "/sectorgrid"
+targets:            "/tmpname"
+action_server:      "move_base"
+obstacle_strength:  1.0
+obstacle_decay:     2.0

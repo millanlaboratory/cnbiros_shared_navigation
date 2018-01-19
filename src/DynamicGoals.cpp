@@ -13,6 +13,12 @@ DynamicGoals::DynamicGoals(void) : private_nh_("~") {
 	// Configure node
 	this->configure();
 
+	// Initialize services
+	this->srv_obstacle_strength_ = this->private_nh_.advertiseService("set_obstacle_strength", 
+												  &DynamicGoals::on_set_obstacle_strength, this);
+	this->srv_obstacle_decay_	 = this->private_nh_.advertiseService("set_obstacle_decay", 
+												  &DynamicGoals::on_set_obstacle_decay, this);
+
 	// Initialize subscribers
     this->subobstacles_ = this->nh_.subscribe(this->obstacle_topic_, 50, &DynamicGoals::callback, this);
     this->subtargets_   = this->nh_.subscribe(this->target_topic_, 50, &DynamicGoals::callback, this);
@@ -56,9 +62,6 @@ bool DynamicGoals::configure(void) {
 	ROS_INFO("DynamicGoals obstacles strength:	%f", this->obstacle_strength_);
 	ROS_INFO("DynamicGoals obstacles decay:		%f", this->obstacle_decay_);
 
-
-
-
 	return true;
 }
 
@@ -70,6 +73,25 @@ void DynamicGoals::WaitForServer(void) {
     ROS_INFO("%s action server connected", this->actionsrv_.c_str());
 }
 
+void DynamicGoals::Start(void) {
+
+	float w = 0.0f;
+	float r = 1.0f;
+
+	if(this->actioncln_->isServerConnected() == false) {
+    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
+    } else {
+    	this->goal_.target_pose.header.frame_id  = this->frame_id_;
+    	this->goal_.target_pose.pose.position.x	 = r*cos(w);
+    	this->goal_.target_pose.pose.position.y	 = r*sin(w);
+    	this->goal_.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(w);
+    	this->goal_.target_pose.header.stamp	 = ros::Time::now();
+
+    	ROS_INFO("New goal at %f [cm] / %f [deg]", r, w*180.0f/M_PI);
+    	this->actioncln_->sendGoal(this->goal_);
+	}
+}
+
 void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& data) {
 
 	float nw, np;
@@ -77,7 +99,8 @@ void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& dat
     this->sector_data_ = data;
 
 	nw = this->compute_orientation(data);
-	np = this->compute_position(data);
+	//np = this->compute_position(data);
+	np = this->compute_position_exponential(data, nw);
 
 	if(this->actioncln_->isServerConnected() == false) {
     	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
@@ -100,36 +123,125 @@ float DynamicGoals::compute_orientation(const cnbiros_wheelchair_navigation::Sec
 
     unsigned int i;
     unsigned int nsectors;
-    float sector_step, sector_min_angle;
+    float sector_step, sector_min_angle, sector_max_angle;
     float cradius, cangle, csigma, clambda;
     float hangle = 0.0f;
     float w = 0.0f;
 
     sector_step	     = data.step;
     sector_min_angle = data.min_angle;
+    sector_max_angle = data.max_angle;
     nsectors	     = data.nsectors;
 
     i = 0;
     for(auto it=data.values.begin(); it!=data.values.end(); ++it) {
-	i++;
+		i++;
 
-	if(std::isinf((*it)) == true)
-	    continue;
+		if(std::isinf((*it)) == true)
+		    continue;
 
-	cradius = (*it);
-	cangle  = sector_min_angle + sector_step*((i-1) + 0.5f);
-	
-	ROS_INFO("Obstacle at: %f degree", cangle*180.0f/M_PI);	
-	clambda = this->obstacle_strength_*exp(-(cradius/this->obstacle_decay_))/(float)nsectors;
-	csigma  = std::atan(std::tan(sector_step/2.0f) + 
-		           this->size_/(this->size_ + cradius));
-	
-	w += clambda*(hangle-cangle)*exp(-(std::pow(hangle - cangle, 2))/(2.0f*pow(csigma, 2)));
+		cradius = (*it);
+		cangle  = sector_min_angle + sector_step*((i-1) + 0.5f);
+		
+		ROS_INFO("Obstacle at: %f degree", cangle*180.0f/M_PI);	
+		//clambda = this->obstacle_strength_*exp(-(cradius/this->obstacle_decay_))/(float)nsectors;
+		clambda = this->obstacle_strength_*exp(-(cradius/this->obstacle_decay_));
+		csigma  = std::atan(std::tan(sector_step/2.0f) + 
+			           this->size_/(this->size_ + cradius));
+		
+		w += clambda*(hangle-cangle)*exp(-(std::pow(hangle - cangle, 2))/(2.0f*pow(csigma, 2)));
 
     }
 
+	//if (w > M_PI/4.0f) {
+	//	w = M_PI/4.0f;
+	//} else if(w < -M_PI/4.0f) {
+	//	w = -M_PI/4.0f;
+	//}
+	
+	if (w < sector_min_angle) {
+		w = sector_min_angle;
+	} else if(w > sector_max_angle) {
+		w = sector_max_angle;
+	}
+
     return w;
 
+}
+
+float DynamicGoals::compute_position_exponential(const cnbiros_wheelchair_navigation::SectorGrid& data, float wescape) {
+
+	unsigned int idsector;
+	float cvalue;
+	float tposition;
+
+    float a;
+    float MINDIS = 0.0f;
+    float MAXDIS = 4.0f;
+    float MAXPOS = 2.0f;
+    
+    a = MAXPOS/std::pow((MAXDIS-MINDIS), 2);
+
+	
+	idsector = angle2sector(wescape, data.min_angle, data.max_angle, data.step, data.nsectors);
+	cvalue = data.values.at(idsector);
+
+    if(cvalue <= MINDIS) {
+		tposition = 0.0f;
+    } else if(std::isinf(cvalue) || cvalue > MAXDIS) {
+		tposition = MAXPOS;
+    } else {
+		tposition = a*std::pow((cvalue-MINDIS), 2);
+    }
+
+	return tposition;
+
+}
+
+float DynamicGoals::compute_position_linear(const cnbiros_wheelchair_navigation::SectorGrid& data, float wescape) {
+
+	unsigned int idsector;
+	float cvalue;
+	float tposition;
+
+    float m, q;
+    float MINDIS = 0.8f;
+    float MAXDIS = 10.0f;
+    float MINPOS = 0.5f; 
+    float MAXPOS = 1.0f;
+    
+    
+	m = (MAXPOS - MINPOS)/(MAXDIS - MINDIS);
+    q = (MAXDIS*MINPOS - MAXPOS*MINDIS)/(MAXDIS - MINDIS);
+	
+	idsector = angle2sector(wescape, data.min_angle, data.max_angle, data.step, data.nsectors);
+	cvalue = data.values.at(idsector);
+
+    if(cvalue <= MINDIS) {
+		tposition = 0.0f;
+    } else if(std::isinf(cvalue)) {
+		tposition = MAXPOS;
+    } else {
+		tposition = cvalue*m + q;
+    }
+
+	return tposition;
+
+}
+
+unsigned int DynamicGoals::angle2sector(float angle, float min_angle, float max_angle, float step_angle, unsigned int nsectors) {
+	
+	unsigned int idsector;
+
+	if(angle == min_angle) {
+		idsector = 0;
+	} else if(angle == max_angle) {
+		idsector = nsectors-1;
+	} else {
+		idsector = std::floor((angle - min_angle)/step_angle);
+	}
+
+	return idsector;
 }
 
 float DynamicGoals::compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data) {
@@ -162,23 +274,22 @@ float DynamicGoals::compute_position(const cnbiros_wheelchair_navigation::Sector
 
     i = 0;
     for(auto it=data.values.begin(); it!=data.values.end(); ++it) {
-	i++;
-	if(std::isinf((*it)) == true)
-	    continue;
+		i++;
+		if(std::isinf((*it)) == true)
+		    continue;
 
-	cradius = (*it);
-	cangle  = sector_min_angle + sector_step*((i-1) + 0.5f);
+		cradius = (*it);
+		cangle  = sector_min_angle + sector_step*((i-1) + 0.5f);
 
-	cprojection = std::abs(std::cos(cangle));
-	
-	if(cprojection >= width/2.0f)
-	    inrange.push_back(cradius);
-	
+		cprojection = std::abs(std::cos(cangle));
+		
+		if(cprojection >= width/2.0f)
+		    inrange.push_back(cradius);
     }
 
     if(inrange.empty() == false) {
-	itmin = std::min_element(std::begin(inrange), std::end(inrange));
-	obstacle_distance = (*itmin);
+		itmin = std::min_element(std::begin(inrange), std::end(inrange));
+		obstacle_distance = (*itmin);
     }
 
     if(obstacle_distance <= MINDIS) {
@@ -191,6 +302,36 @@ float DynamicGoals::compute_position(const cnbiros_wheelchair_navigation::Sector
 
 
     return tposition;
+}
+
+bool DynamicGoals::on_set_obstacle_strength(cnbiros_wheelchair_navigation::ObstacleStrength::Request &req,
+									  cnbiros_wheelchair_navigation::ObstacleStrength::Response &res) {
+
+	if(req.strength <= 0.0f) {
+		ROS_ERROR("Obstacle strength must be > 0.0f");
+		res.result = false;
+	} else {
+		this->obstacle_strength_ = req.strength;
+		ROS_INFO("Updated obstacle strength to: %f", this->obstacle_strength_);
+		res.result = true;
+	}
+
+	return res.result;
+}
+
+bool DynamicGoals::on_set_obstacle_decay(cnbiros_wheelchair_navigation::ObstacleDecay::Request &req,
+									  cnbiros_wheelchair_navigation::ObstacleDecay::Response &res) {
+
+	if(req.decay <= 0.0f) {
+		ROS_ERROR("Obstacle decay must be > 0.0f");
+		res.result = false;
+	} else {
+		this->obstacle_decay_ = req.decay;
+		ROS_INFO("Updated obstacle decay to: %f", this->obstacle_decay_);
+		res.result = true;
+	}
+
+	return res.result;
 }
 
 /*
@@ -227,75 +368,27 @@ bool DynamicGoals::compute_velocity(const cnbiros_wheelchair_navigation::SectorG
     return true;
 }
 */
-/*
 void DynamicGoals::Run(void) {
    
-    float w, p;
-    ros::Rate r(20);
-
-    geometry_msgs::PoseStamped tmppose;
+	actionlib::SimpleClientGoalState state(actionlib::SimpleClientGoalState::LOST);
 
     while(this->nh_.ok()) {
-	
-	ros::spinOnce();
-	r.sleep();
-	
-	
-	if(this->actioncln_->isServerConnected() == false) {
-    	    ROS_WARN("%s action server is disconnected. Nothing to do.", this->server_name_.c_str());
-	    continue;
-    	}
 
-	if(this->new_costmap_ == false) 
-	    continue;
+		if(this->actioncln_->isServerConnected()) {
+			
+			state = this->actioncln_->getState();
+			
+			if(state != actionlib::SimpleClientGoalState::LOST)
+				ROS_INFO("%s", state.toString().c_str());
 
-	// Initialize new orientation goal
-	w = this->compute_orientation(this->rep_data_);
-    	ROS_INFO("current orientation goal: %f [deg]", w*180.0f/M_PI);
-	
-	p = this->compute_position(this->rep_data_);
-    	ROS_INFO("current position goal: %f [cm]", p);
-	
-	// Tmp pose message
-	tmppose.header.stamp = ros::Time::now();
-	tmppose.header.frame_id = "base_link";
-	tmppose.pose.position.x = p*cos(w);
-	tmppose.pose.position.y = p*sin(w);
-	tmppose.pose.position.z = 0.0f;
-	tmppose.pose.orientation = tf::createQuaternionMsgFromYaw(w);
-
-
-	this->tmppub_.publish(tmppose);
-	//v = 0.0f;
-	
-	//if(this->compute_orientation(this->rep_data_, w) == false) {
-    	//    ROS_ERROR("Cannot compute orientation from incoming message");
-    	//    continue;
-    	//}
-	
-	//if(this->compute_velocity(this->rep_data_, v) == false) {
-    	//    ROS_ERROR("Cannot compute velocity from incoming message");
-    	//    continue;
-    	//}
-
-
-	ROS_INFO("Canceling all current goals");
-    	this->actioncln_->cancelAllGoals();
-
-    	//ROS_INFO("current velocity goal: %f", v);
-    	this->current_goal_.target_pose.header.frame_id = "base_link";
-    	this->current_goal_.target_pose.pose.position.x = p*cos(w);
-    	this->current_goal_.target_pose.pose.position.y = p*sin(w);
-    	this->current_goal_.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(w);
-
-    	this->current_goal_.target_pose.header.stamp = ros::Time::now();
-    	ROS_INFO("Sending new goal");
-    	this->actioncln_->sendGoal(this->current_goal_);
-
+			if (state == actionlib::SimpleClientGoalState::SUCCEEDED) {
+				// service clear map
+			}
+		}
+		ros::spinOnce();
     }
 
 }
-*/
 
     }
 }

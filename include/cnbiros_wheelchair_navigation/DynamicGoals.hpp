@@ -8,6 +8,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <std_srvs/Empty.h>
 #include "cnbiros_wheelchair_navigation/SectorGrid.h"
+#include "cnbiros_wheelchair_navigation/ObstacleStrength.h"
+#include "cnbiros_wheelchair_navigation/ObstacleDecay.h"
 
 namespace cnbiros {
     namespace navigation {
@@ -22,38 +24,49 @@ class DynamicGoals {
 
 		void WaitForServer(void);
 
+		void Start(void);
+		void Run(void);
 		bool configure(void);
 
     protected:
 		virtual void callback(const cnbiros_wheelchair_navigation::SectorGrid& data);
 		virtual float compute_orientation(const cnbiros_wheelchair_navigation::SectorGrid& data);
+		virtual float compute_position_linear(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
+		virtual float compute_position_exponential(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
 		virtual float compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data);
-	
+		bool on_set_obstacle_strength(cnbiros_wheelchair_navigation::ObstacleStrength::Request &req,
+									  cnbiros_wheelchair_navigation::ObstacleStrength::Response &res);
+		bool on_set_obstacle_decay(cnbiros_wheelchair_navigation::ObstacleDecay::Request &req,
+								   cnbiros_wheelchair_navigation::ObstacleDecay::Response &res);
+
+		unsigned int angle2sector(float angle, float min_angle, float max_angle,
+								  float step_angle, unsigned int nsectors);
 
     protected:
-	ros::NodeHandle nh_;
-	ros::NodeHandle	private_nh_;
+		ros::NodeHandle nh_;
+		ros::NodeHandle	private_nh_;
 
-	std::string		obstacle_topic_;
-	ros::Subscriber	subobstacles_;
-	
-	std::string		target_topic_;
-	ros::Subscriber	subtargets_;
+		std::string		obstacle_topic_;
+		ros::Subscriber	subobstacles_;
+		
+		std::string		target_topic_;
+		ros::Subscriber	subtargets_;
 
-	ros::ServiceClient  rossrv_;
-	
-	std::string		actionsrv_;
-	MoveBaseClient*	actioncln_;
+		ros::ServiceServer  srv_obstacle_strength_;
+		ros::ServiceServer  srv_obstacle_decay_;
+		
+		std::string		actionsrv_;
+		MoveBaseClient*	actioncln_;
 
-	float			obstacle_strength_;
-	float			obstacle_decay_;
+		float			obstacle_strength_;
+		float			obstacle_decay_;
 
-	std::string		frame_id_;
-	move_base_msgs::MoveBaseGoal	goal_;
-	cnbiros_wheelchair_navigation::SectorGrid sector_data_;
+		std::string		frame_id_;
+		move_base_msgs::MoveBaseGoal	goal_;
+		cnbiros_wheelchair_navigation::SectorGrid sector_data_;
 
-	// tmp
-	float size_;
+		// tmp
+		float size_;
 
 };
 

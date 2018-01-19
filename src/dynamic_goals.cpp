@@ -9,8 +9,11 @@ int main(int argc, char **argv) {
 	// Wait for Server
 	dgoals.WaitForServer();	
 
+	// Send start goal (forward)
+	dgoals.Start();
 
-	ros::spin();
+	dgoals.Run();
+	//ros::spin();
 
 	return 0;
 }

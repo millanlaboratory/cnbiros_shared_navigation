@@ -1,7 +1,7 @@
-threshold: 90.0
+threshold: 100.0
 frame_id: "base_link"
 costmap: "/move_base/local_costmap/costmap"
 sectorgrid: "/sectorgrid"
 min_angle: -1.570796325
 max_angle:  1.570796325 
-nsectors: 10
+nsectors: 20
