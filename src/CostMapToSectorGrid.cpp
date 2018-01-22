@@ -41,11 +41,11 @@ bool CostMapToSectorGrid::configure(void) {
 
 	int nsectors;
 
-	this->threshold_ = 90.0f;
+	this->threshold_ = 100.0f;
 	this->frame_id_  = "base_link";
 	this->stopic_	 = "/move_base/local_costmap/costmap";
 	this->ptopic_	 = "/sectorgrid";
-	this->nsectors_	 = 8;
+	this->nsectors_	 = 40;
 	this->min_angle_ = -M_PI/2.0f;
 	this->max_angle_ = M_PI/2.0f;
 

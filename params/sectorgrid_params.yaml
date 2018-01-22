@@ -4,4 +4,4 @@ costmap: "/move_base/local_costmap/costmap"
 sectorgrid: "/sectorgrid"
 min_angle: -1.570796325
 max_angle:  1.570796325 
-nsectors: 20
+nsectors: 40

@@ -8,8 +8,9 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <std_srvs/Empty.h>
 #include "cnbiros_wheelchair_navigation/SectorGrid.h"
-#include "cnbiros_wheelchair_navigation/ObstacleStrength.h"
-#include "cnbiros_wheelchair_navigation/ObstacleDecay.h"
+//#include "cnbiros_wheelchair_navigation/ObstacleStrength.h"
+//#include "cnbiros_wheelchair_navigation/ObstacleDecay.h"
+#include "cnbiros_wheelchair_navigation/DynamicGoalsParameters.h"
 
 namespace cnbiros {
     namespace navigation {
@@ -29,15 +30,23 @@ class DynamicGoals {
 		bool configure(void);
 
     protected:
+		move_base_msgs::MoveBaseGoal make_goal(void);
+
 		virtual void callback(const cnbiros_wheelchair_navigation::SectorGrid& data);
 		virtual float compute_orientation(const cnbiros_wheelchair_navigation::SectorGrid& data);
 		virtual float compute_position_linear(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
 		virtual float compute_position_exponential(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
 		virtual float compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data);
+
+		/*
 		bool on_set_obstacle_strength(cnbiros_wheelchair_navigation::ObstacleStrength::Request &req,
 									  cnbiros_wheelchair_navigation::ObstacleStrength::Response &res);
 		bool on_set_obstacle_decay(cnbiros_wheelchair_navigation::ObstacleDecay::Request &req,
 								   cnbiros_wheelchair_navigation::ObstacleDecay::Response &res);
+*/
+
+		bool on_set_parameters(cnbiros_wheelchair_navigation::DynamicGoalsParameters::Request& req,
+							   cnbiros_wheelchair_navigation::DynamicGoalsParameters::Response& res);
 
 		unsigned int angle2sector(float angle, float min_angle, float max_angle,
 								  float step_angle, unsigned int nsectors);
@@ -52,21 +61,21 @@ class DynamicGoals {
 		std::string		target_topic_;
 		ros::Subscriber	subtargets_;
 
-		ros::ServiceServer  srv_obstacle_strength_;
-		ros::ServiceServer  srv_obstacle_decay_;
+		//ros::ServiceServer  srv_obstacle_strength_;
+		//ros::ServiceServer  srv_obstacle_decay_;
+		ros::ServiceServer  srv_set_parameters_;
+		ros::ServiceClient  srv_clear_costmap_;
 		
 		std::string		actionsrv_;
 		MoveBaseClient*	actioncln_;
 
 		float			obstacle_strength_;
 		float			obstacle_decay_;
+		float			obstacle_occupancy_;
 
 		std::string		frame_id_;
 		move_base_msgs::MoveBaseGoal	goal_;
 		cnbiros_wheelchair_navigation::SectorGrid sector_data_;
-
-		// tmp
-		float size_;
 
 };
 

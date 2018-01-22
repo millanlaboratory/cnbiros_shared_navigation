@@ -18,8 +18,7 @@ add_service_files(
   SectorMinAngle.srv
   SectorMaxAngle.srv
   SectorThreshold.srv
-  ObstacleStrength.srv
-  ObstacleDecay.srv
+  DynamicGoalsParameters.srv
 )
 
 generate_messages(
