@@ -25,25 +25,25 @@ class DynamicGoals {
 
 		void WaitForServer(void);
 
+		void MakeGoal(void);
+		void MakeGoal(float radius, float angle);
+		void SendGoal(void);
+		void CancelServerGoal(void);
+
 		void Start(void);
 		void Run(void);
 		bool configure(void);
 
     protected:
-		move_base_msgs::MoveBaseGoal make_goal(void);
 
 		virtual void callback(const cnbiros_wheelchair_navigation::SectorGrid& data);
+		virtual void user_callback(const cnbiros_wheelchair_navigation::SectorGrid& data);
 		virtual float compute_orientation(const cnbiros_wheelchair_navigation::SectorGrid& data);
-		virtual float compute_position_linear(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
+		virtual float compute_orientation_user(const cnbiros_wheelchair_navigation::SectorGrid& data);
 		virtual float compute_position_exponential(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
-		virtual float compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data);
+		//virtual float compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data);
+		//virtual float compute_position_linear(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
 
-		/*
-		bool on_set_obstacle_strength(cnbiros_wheelchair_navigation::ObstacleStrength::Request &req,
-									  cnbiros_wheelchair_navigation::ObstacleStrength::Response &res);
-		bool on_set_obstacle_decay(cnbiros_wheelchair_navigation::ObstacleDecay::Request &req,
-								   cnbiros_wheelchair_navigation::ObstacleDecay::Response &res);
-*/
 
 		bool on_set_parameters(cnbiros_wheelchair_navigation::DynamicGoalsParameters::Request& req,
 							   cnbiros_wheelchair_navigation::DynamicGoalsParameters::Response& res);
@@ -61,8 +61,6 @@ class DynamicGoals {
 		std::string		target_topic_;
 		ros::Subscriber	subtargets_;
 
-		//ros::ServiceServer  srv_obstacle_strength_;
-		//ros::ServiceServer  srv_obstacle_decay_;
 		ros::ServiceServer  srv_set_parameters_;
 		ros::ServiceClient  srv_clear_costmap_;
 		
@@ -75,7 +73,15 @@ class DynamicGoals {
 
 		std::string		frame_id_;
 		move_base_msgs::MoveBaseGoal	goal_;
+
 		cnbiros_wheelchair_navigation::SectorGrid sector_data_;
+		cnbiros_wheelchair_navigation::SectorGrid user_data_;
+
+		bool	is_map_available_;
+		bool	is_user_available_;
+
+		float		usr_command_persistency_;
+		ros::Time	usr_time_received_;
 
 };
 

@@ -25,7 +25,7 @@ DynamicGoals::DynamicGoals(void) : private_nh_("~") {
 
 	// Initialize subscribers
     this->subobstacles_ = this->nh_.subscribe(this->obstacle_topic_, 50, &DynamicGoals::callback, this);
-    this->subtargets_   = this->nh_.subscribe(this->target_topic_, 50, &DynamicGoals::callback, this);
+    this->subtargets_   = this->nh_.subscribe(this->target_topic_, 50, &DynamicGoals::user_callback, this);
 
 	// Initialize move base client
     this->actioncln_ = new MoveBaseClient(this->actionsrv_, true);
@@ -43,9 +43,13 @@ bool DynamicGoals::configure(void) {
 	this->obstacle_decay_		= 2.0f;
 	this->obstacle_occupancy_	= 1.0f;
 	this->obstacle_topic_		= "/sectorgrid";
-	this->target_topic_			= "/tmpname";
+	this->target_topic_			= "/user";
 	this->actionsrv_			= "move_base";
 	this->frame_id_				= "base_link";
+	this->usr_command_persistency_ = 5.0f;
+
+	this->is_map_available_		= false;
+	this->is_user_available_	= false;
 
 	// Getting parameters
 	this->private_nh_.getParam("obstacles",				this->obstacle_topic_);
@@ -55,15 +59,17 @@ bool DynamicGoals::configure(void) {
 	this->private_nh_.getParam("obstacle_strength",		this->obstacle_strength_);
 	this->private_nh_.getParam("obstacle_decay",		this->obstacle_decay_);
 	this->private_nh_.getParam("obstacle_occupancy",	this->obstacle_occupancy_);
+	this->private_nh_.getParam("command_persistency",	this->usr_command_persistency_);
 
 	
-	ROS_INFO("DynamicGoals frame_id:		    %s", this->frame_id_.c_str());
-	ROS_INFO("DynamicGoals obstacles topic:		%s", this->obstacle_topic_.c_str());
-	ROS_INFO("DynamicGoals target topic:		%s", this->target_topic_.c_str());
-	ROS_INFO("DynamicGoals action server name:	%s", this->actionsrv_.c_str());
-	ROS_INFO("DynamicGoals obstacles strength:	%f", this->obstacle_strength_);
-	ROS_INFO("DynamicGoals obstacles decay:		%f", this->obstacle_decay_);
-	ROS_INFO("DynamicGoals obstacles occupancy:	%f", this->obstacle_occupancy_);
+	ROS_INFO("DynamicGoals frame_id:					%s", this->frame_id_.c_str());
+	ROS_INFO("DynamicGoals obstacles topic:				%s", this->obstacle_topic_.c_str());
+	ROS_INFO("DynamicGoals target topic:				%s", this->target_topic_.c_str());
+	ROS_INFO("DynamicGoals action server name:			%s", this->actionsrv_.c_str());
+	ROS_INFO("DynamicGoals obstacles strength:			%f", this->obstacle_strength_);
+	ROS_INFO("DynamicGoals obstacles decay:				%f", this->obstacle_decay_);
+	ROS_INFO("DynamicGoals obstacles occupancy:			%f", this->obstacle_occupancy_);
+	ROS_INFO("DynamicGoals user command persistency:	%f", this->usr_command_persistency_);
 
 	return true;
 }
@@ -81,77 +87,104 @@ void DynamicGoals::Start(void) {
 	float w = 0.0f;
 	float r = 1.0f;
 
+	this->MakeGoal(r, w);
+	this->CancelServerGoal();
+	this->SendGoal();
+}
+
+void DynamicGoals::MakeGoal(float radius, float angle) {
+
+    // Make the goal for the given angle and radius
+	this->goal_.target_pose.header.frame_id		= this->frame_id_;
+    this->goal_.target_pose.pose.position.x		= radius*cos(angle);
+    this->goal_.target_pose.pose.position.y		= radius*sin(angle);
+    this->goal_.target_pose.pose.orientation	= tf::createQuaternionMsgFromYaw(angle);
+    this->goal_.target_pose.header.stamp		= ros::Time::now();
+    	
+	ROS_INFO("New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
+}
+
+void DynamicGoals::MakeGoal(void) {
+
+	float angle		= 0.0f;
+	float map_angle = 0.0f;
+	float usr_angle = 0.0f;
+	float radius	= 0.0f;
+
+	// Compute orientation for repellors
+	if(is_map_available_ == true) {
+		map_angle  = this->compute_orientation(this->sector_data_);
+	}
+	ROS_INFO("Map angle: %f [deg]", map_angle*180.0f/M_PI);
+	
+	// Compute orientation for attractors
+	if(is_user_available_ == true) {
+		usr_angle = this->compute_orientation_user(this->user_data_);
+	}
+	ROS_INFO("Usr angle: %f [deg]", usr_angle*180.0f/M_PI);
+	
+	angle = map_angle + usr_angle;
+
+	if (angle < -M_PI/2.0f) {
+		angle = -M_PI/2.0f;
+	} else if(angle > M_PI/2.0f) {
+		angle = M_PI/2.0f;
+	}
+	// Compute position for computed angle
+	if(is_map_available_ == true) {
+		radius = this->compute_position_exponential(this->sector_data_, angle);
+	}
+	
+    // Make the goal given the computed angle and radius
+	this->goal_.target_pose.header.frame_id		= this->frame_id_;
+    this->goal_.target_pose.pose.position.x		= radius*cos(angle);
+    this->goal_.target_pose.pose.position.y		= radius*sin(angle);
+    this->goal_.target_pose.pose.orientation	= tf::createQuaternionMsgFromYaw(angle);
+    this->goal_.target_pose.header.stamp		= ros::Time::now();
+    	
+	ROS_INFO("New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
+}
+
+
+void DynamicGoals::SendGoal(void) {
+
 	if(this->actioncln_->isServerConnected() == false) {
     	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
     } else {
-    	this->goal_.target_pose.header.frame_id  = this->frame_id_;
-    	this->goal_.target_pose.pose.position.x	 = r*cos(w);
-    	this->goal_.target_pose.pose.position.y	 = r*sin(w);
-    	this->goal_.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(w);
-    	this->goal_.target_pose.header.stamp	 = ros::Time::now();
-
-    	ROS_INFO("New goal at %f [cm] / %f [deg]", r, w*180.0f/M_PI);
     	this->actioncln_->sendGoal(this->goal_);
 	}
 }
 
-move_base_msgs::MoveBaseGoal DynamicGoals::make_goal(void) {
+void DynamicGoals::CancelServerGoal(void) {
 
-	float nw, np;
-	move_base_msgs::MoveBaseGoal goal;
-
-	nw = this->compute_orientation(this->sector_data_);
-	np = this->compute_position_exponential(this->sector_data_, nw);
-
-    goal.target_pose.header.frame_id	= this->frame_id_;
-    goal.target_pose.pose.position.x	= np*cos(nw);
-    goal.target_pose.pose.position.y	= np*sin(nw);
-    goal.target_pose.pose.orientation	= tf::createQuaternionMsgFromYaw(nw);
-    goal.target_pose.header.stamp		= ros::Time::now();
-    	
-	ROS_INFO("New goal at %f [cm] / %f [deg]", np, nw*180.0f/M_PI);
-
-	return goal;
-
+	if(this->actioncln_->isServerConnected() == false) {
+    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
+    } else {
+		this->actioncln_->cancelGoal();
+	}
 }
+
 
 void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& data) {
 
-	float nw, np;
-
     this->sector_data_ = data;
+	this->is_map_available_ = true;
 
+	this->MakeGoal();
+	this->CancelServerGoal();
+	this->SendGoal();
+}
 
-	if(this->actioncln_->isServerConnected() == false) {
-    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
-    } else {
-		
-		this->goal_ = this->make_goal();
-		this->actioncln_->cancelGoal();
-    	this->actioncln_->sendGoal(this->goal_);
-	}
+void DynamicGoals::user_callback(const cnbiros_wheelchair_navigation::SectorGrid& data) {
 
-	/*
-	nw = this->compute_orientation(data);
-	//np = this->compute_position(data);
-	np = this->compute_position_exponential(data, nw);
+    this->user_data_ = data;
+	this->is_user_available_ = true;
 
-	if(this->actioncln_->isServerConnected() == false) {
-    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
-    } else {
-	
-		this->actioncln_->cancelGoal();
+	this->usr_time_received_ = ros::Time::now();
 
-    	this->goal_.target_pose.header.frame_id  = this->frame_id_;
-    	this->goal_.target_pose.pose.position.x	 = np*cos(nw);
-    	this->goal_.target_pose.pose.position.y	 = np*sin(nw);
-    	this->goal_.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(nw);
-    	this->goal_.target_pose.header.stamp	 = ros::Time::now();
-
-    	ROS_INFO("New goal at %f [cm] / %f [deg]", np, nw*180.0f/M_PI);
-    	this->actioncln_->sendGoal(this->goal_);
-	}
-	*/
+	this->MakeGoal();
+	this->CancelServerGoal();
+	this->SendGoal();
 }
 
 float DynamicGoals::compute_orientation(const cnbiros_wheelchair_navigation::SectorGrid& data) {
@@ -193,14 +226,47 @@ float DynamicGoals::compute_orientation(const cnbiros_wheelchair_navigation::Sec
 	//	w = -M_PI/4.0f;
 	//}
 	
-	if (w < sector_min_angle) {
-		w = sector_min_angle;
-	} else if(w > sector_max_angle) {
-		w = sector_max_angle;
-	}
+	//if (w < sector_min_angle) {
+	//	w = sector_min_angle;
+	//} else if(w > sector_max_angle) {
+	//	w = sector_max_angle;
+	//}
 
     return w;
 
+}
+
+float DynamicGoals::compute_orientation_user(const cnbiros_wheelchair_navigation::SectorGrid& data) {
+
+    unsigned int i;
+    unsigned int nsectors;
+    float sector_step, sector_min_angle, sector_max_angle;
+    float cradius, cangle, csigma, clambda;
+    float hangle = 0.0f;
+    float w = 0.0f;
+
+    sector_step	     = data.step;
+    sector_min_angle = data.min_angle;
+    sector_max_angle = data.max_angle;
+    nsectors	     = data.nsectors;
+
+
+    i = 0;
+    for(auto it=data.values.begin(); it!=data.values.end(); ++it) {
+		i++;
+
+		if(std::isinf((*it)) == true)
+		    continue;
+
+		cradius = (*it);
+		cangle  = sector_min_angle + sector_step*((i-1) + 0.5f);
+		
+		ROS_INFO("User command at: %f degree", cangle*180.0f/M_PI);	
+		
+		w = -cangle;
+    }
+
+    return w;
 }
 
 float DynamicGoals::compute_position_exponential(const cnbiros_wheelchair_navigation::SectorGrid& data, float wescape) {
@@ -211,8 +277,8 @@ float DynamicGoals::compute_position_exponential(const cnbiros_wheelchair_naviga
 
     float a;
     float MINDIS = 0.0f;
-    float MAXDIS = 4.0f;
-    float MAXPOS = 2.0f;
+    float MAXDIS = 6.0f;
+    float MAXPOS = 1.0f;
     
     a = MAXPOS/std::pow((MAXDIS-MINDIS), 2);
 
@@ -231,7 +297,7 @@ float DynamicGoals::compute_position_exponential(const cnbiros_wheelchair_naviga
 	return tposition;
 
 }
-
+/*
 float DynamicGoals::compute_position_linear(const cnbiros_wheelchair_navigation::SectorGrid& data, float wescape) {
 
 	unsigned int idsector;
@@ -262,7 +328,7 @@ float DynamicGoals::compute_position_linear(const cnbiros_wheelchair_navigation:
 	return tposition;
 
 }
-
+*/
 unsigned int DynamicGoals::angle2sector(float angle, float min_angle, float max_angle, float step_angle, unsigned int nsectors) {
 	
 	unsigned int idsector;
@@ -278,6 +344,7 @@ unsigned int DynamicGoals::angle2sector(float angle, float min_angle, float max_
 	return idsector;
 }
 
+/*
 float DynamicGoals::compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data) {
     
     float tposition = 1.0f;
@@ -337,7 +404,7 @@ float DynamicGoals::compute_position(const cnbiros_wheelchair_navigation::Sector
 
     return tposition;
 }
-
+*/
 bool DynamicGoals::on_set_parameters(cnbiros_wheelchair_navigation::DynamicGoalsParameters::Request& req,
 									 cnbiros_wheelchair_navigation::DynamicGoalsParameters::Response& res) {
 
@@ -365,6 +432,9 @@ bool DynamicGoals::on_set_parameters(cnbiros_wheelchair_navigation::DynamicGoals
 			this->obstacle_occupancy_ = req.value;
 			ROS_INFO("Updated obstacle occupancy to: %f", this->obstacle_occupancy_);
 		}
+	} else if( req.name.compare("command_persistency") == 0 ) {
+		this->usr_command_persistency_ = req.value;
+		ROS_INFO("Updated user command persistency to: %f", this->usr_command_persistency_);
 	} else {
 		ROS_ERROR("'%s' is not a parameter of DynamicGoal node", req.name.c_str());
 		res.result = false;
@@ -373,79 +443,23 @@ bool DynamicGoals::on_set_parameters(cnbiros_wheelchair_navigation::DynamicGoals
 	return res.result;
 }
 
-/*
-bool DynamicGoals::on_set_obstacle_strength(cnbiros_wheelchair_navigation::ObstacleStrength::Request &req,
-									  cnbiros_wheelchair_navigation::ObstacleStrength::Response &res) {
-
-	if(req.strength <= 0.0f) {
-		ROS_ERROR("Obstacle strength must be > 0.0f");
-		res.result = false;
-	} else {
-		this->obstacle_strength_ = req.strength;
-		ROS_INFO("Updated obstacle strength to: %f", this->obstacle_strength_);
-		res.result = true;
-	}
-
-	return res.result;
-}
-
-bool DynamicGoals::on_set_obstacle_decay(cnbiros_wheelchair_navigation::ObstacleDecay::Request &req,
-									  cnbiros_wheelchair_navigation::ObstacleDecay::Response &res) {
-
-	if(req.decay <= 0.0f) {
-		ROS_ERROR("Obstacle decay must be > 0.0f");
-		res.result = false;
-	} else {
-		this->obstacle_decay_ = req.decay;
-		ROS_INFO("Updated obstacle decay to: %f", this->obstacle_decay_);
-		res.result = true;
-	}
-
-	return res.result;
-}
-*/
-
-/*
-bool DynamicGoals::compute_velocity(const cnbiros_wheelchair_navigation::SectorGrid& data, float& v) {
-    unsigned int nelem;
-    float cradius, cangle, cvalue, clambda, csigma; 
-    float distance_center, distance_front;
-
-    if( (data.radius.size() != data.angle.size()) ||
-	(data.angle.size() != data.value.size()) ) {
-	ROS_ERROR("Corrupted PolarGrid message");
-	return false;
-    }
-
-    v = this->maxvel_;
-    nelem = data.radius.size();
-    for(auto i=0; i<nelem; i++) {
-	cradius = data.radius.at(i);
-	cangle  = data.angle.at(i);
-	cvalue  = (float)data.value.at(i);
-	distance_center = std::abs(std::cos(cangle)*cradius);
-	distance_front  = std::sin(cangle)*cradius;
-	
-	if(distance_center <= this->size_) {
-	    distance_front = std::max(distance_front -
-			               std::sqrt(std::pow(this->size_,2.0f) -
-					         std::pow(distance_center,2.0f)), 0.01f);
-	} else {
-	    distance_front = distance_front + 
-			     std::exp(this->audacity_/this->size_*std::pow((distance_center - this->size_),2.0f))-1.0f;
-	}
-	v = std::min(v, this->maxvel_*std::exp(-this->lindecay_/distance_front));
-    }
-    return true;
-}
-*/
 void DynamicGoals::Run(void) {
    
 	actionlib::SimpleClientGoalState state(actionlib::SimpleClientGoalState::LOST);
 
 	std_srvs::Empty srvmsg_clearcostmap;
+	double usr_time_elapsed;
 
     while(this->nh_.ok()) {
+
+		if(this->is_user_available_ == true) {
+			usr_time_elapsed = ros::Time::now().toSec() - this->usr_time_received_.toSec();
+			if(usr_time_elapsed >= this->usr_command_persistency_) {
+				ROS_INFO("Reset user command");
+				this->is_user_available_ = false;
+			}
+		}
+
 
 		if(this->actioncln_->isServerConnected()) {
 			
@@ -461,9 +475,9 @@ void DynamicGoals::Run(void) {
 				// service clear map
 				ROS_INFO("Goal reached. Forcing new goal");
 
-				this->goal_ = this->make_goal();
-				this->actioncln_->cancelGoal();
-    			this->actioncln_->sendGoal(this->goal_);
+				this->MakeGoal();
+				this->CancelServerGoal();
+				this->SendGoal();
 			} else if (state == actionlib::SimpleClientGoalState::ABORTED) {
 				ROS_INFO("Goal aborted. Clearing costmap and forcing new goal");
 
@@ -473,9 +487,9 @@ void DynamicGoals::Run(void) {
 					ROS_ERROR("Failed to request costmap clearing");
 				}
 
-				this->goal_ = this->make_goal();
-				this->actioncln_->cancelGoal();
-    			this->actioncln_->sendGoal(this->goal_);
+				this->MakeGoal();
+				this->CancelServerGoal();
+				this->SendGoal();
 			}
 
 		}
