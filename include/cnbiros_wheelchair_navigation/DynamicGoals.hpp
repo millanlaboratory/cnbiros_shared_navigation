@@ -41,15 +41,20 @@ class DynamicGoals {
 		virtual float compute_orientation(const cnbiros_wheelchair_navigation::SectorGrid& data);
 		virtual float compute_orientation_user(const cnbiros_wheelchair_navigation::SectorGrid& data);
 		virtual float compute_position_exponential(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
-		//virtual float compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data);
-		//virtual float compute_position_linear(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
+
+		virtual float compute_position_logistic(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
 
 
 		bool on_set_parameters(cnbiros_wheelchair_navigation::DynamicGoalsParameters::Request& req,
 							   cnbiros_wheelchair_navigation::DynamicGoalsParameters::Response& res);
 
+		void on_reset_command_user(const ros::TimerEvent& event);
+
 		unsigned int angle2sector(float angle, float min_angle, float max_angle,
 								  float step_angle, unsigned int nsectors);
+
+	private:
+		void init_command_timer(float timeout);
 
     protected:
 		ros::NodeHandle nh_;
@@ -78,10 +83,14 @@ class DynamicGoals {
 		cnbiros_wheelchair_navigation::SectorGrid user_data_;
 
 		bool	is_map_available_;
-		bool	is_user_available_;
 
-		float		usr_command_persistency_;
-		ros::Time	usr_time_received_;
+		float		command_timeout_;
+
+
+		float max_goal_distance_;
+		float slope_distance_;
+
+		ros::Timer	command_timer_;
 
 };
 

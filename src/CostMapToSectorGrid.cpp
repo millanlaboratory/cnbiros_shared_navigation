@@ -111,7 +111,7 @@ void CostMapToSectorGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
 	unsigned int i;
     float sector_lower, sector_upper, sector_value;
    
-    ROS_INFO("New costmap");
+    //ROS_INFO("New costmap");
     if(grid_map::GridMapRosConverter::fromOccupancyGrid(data_in, "costmap", map) == false) {
 		ROS_ERROR("Cannot convert occupancy grid to grid map");
 		return;
@@ -158,7 +158,7 @@ void CostMapToSectorGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
 		sector_upper = sector_lower + this->step_*180.0f/M_PI;
 		sector_value = (*it);
     	
-		ROS_INFO("Sector grid %u [%2.1f<->%2.1f]: %f [m]", i, sector_lower, sector_upper, sector_value); 
+		//ROS_INFO("Sector grid %u [%2.1f<->%2.1f]: %f [m]", i, sector_lower, sector_upper, sector_value); 
 		i++;
     }
 
