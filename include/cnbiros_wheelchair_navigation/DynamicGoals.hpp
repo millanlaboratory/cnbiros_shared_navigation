@@ -11,6 +11,10 @@
 //#include "cnbiros_wheelchair_navigation/ObstacleStrength.h"
 //#include "cnbiros_wheelchair_navigation/ObstacleDecay.h"
 #include "cnbiros_wheelchair_navigation/DynamicGoalsParameters.h"
+#include <dynamic_reconfigure/server.h>
+#include "cnbiros_wheelchair_navigation/DynamicGoalsConfig.h"
+
+#define EPSILON	0.00001
 
 namespace cnbiros {
     namespace navigation {
@@ -35,6 +39,7 @@ class DynamicGoals {
 		bool configure(void);
 
     protected:
+		void reconfigure_callback(cnbiros_wheelchair_navigation::DynamicGoalsConfig &config, uint32_t level);
 
 		virtual void callback(const cnbiros_wheelchair_navigation::SectorGrid& data);
 		virtual void user_callback(const cnbiros_wheelchair_navigation::SectorGrid& data);
@@ -91,7 +96,10 @@ class DynamicGoals {
 		float slope_distance_;
 
 		ros::Timer	command_timer_;
+		
 
+		dynamic_reconfigure::Server<cnbiros_wheelchair_navigation::DynamicGoalsConfig> cfgserver;
+		dynamic_reconfigure::Server<cnbiros_wheelchair_navigation::DynamicGoalsConfig>::CallbackType f;
 };
 
     }

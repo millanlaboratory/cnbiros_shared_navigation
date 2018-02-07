@@ -7,6 +7,13 @@ SET(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
+#add dynamic reconfigure api
+#find_package(catkin REQUIRED dynamic_reconfigure)
+generate_dynamic_reconfigure_options(
+	cfg/DynamicGoals.cfg
+  #...
+)
+
 add_message_files(
 	FILES
 	SectorGrid.msg
@@ -52,6 +59,7 @@ target_link_libraries(costmap_to_sectorgrid cnbiros_wheelchair_navigation ${catk
 
 add_executable(dynamic_goals src/dynamic_goals.cpp)
 target_link_libraries(dynamic_goals cnbiros_wheelchair_navigation ${catkin_LIBRARIES})
+add_dependencies(dynamic_goals ${PROJECT_NAME}_gencfg)
 
 add_executable(user_goal src/user_goal.cpp)
 target_link_libraries(user_goal ${catkin_LIBRARIES})

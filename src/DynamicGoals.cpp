@@ -28,11 +28,52 @@ DynamicGoals::DynamicGoals(void) : private_nh_("~") {
 
 	// Initialize user command timer
 	this->init_command_timer(this->command_timeout_);
+
+
+	// Dynamic reconfiguration
+	this->f = boost::bind(&DynamicGoals::reconfigure_callback, this, _1, _2);
+	this->cfgserver.setCallback(f);
+
 }
 
 DynamicGoals::~DynamicGoals(void) {
     if(this->actioncln_ == nullptr)
 	delete this->actioncln_;
+}
+
+void DynamicGoals::reconfigure_callback(cnbiros_wheelchair_navigation::DynamicGoalsConfig &config, 
+										uint32_t level) {
+
+	if(std::fabs(config.param_obstacle_strength - this->obstacle_strength_) > EPSILON) {
+		this->obstacle_strength_ = config.param_obstacle_strength;
+		ROS_WARN("Updated obstacle strength to %f", this->obstacle_strength_);
+	}
+	
+	if(std::fabs(config.param_obstacle_decay - this->obstacle_decay_) > EPSILON) {
+		this->obstacle_decay_ = config.param_obstacle_decay;
+		ROS_WARN("Updated obstacle decay to %f", this->obstacle_decay_);
+	}
+	
+	if(std::fabs(config.param_obstacle_occupancy - this->obstacle_occupancy_) > EPSILON) {
+		this->obstacle_occupancy_ = config.param_obstacle_occupancy;
+		ROS_WARN("Updated obstacle occupancy to %f", this->obstacle_occupancy_);
+	}
+	
+	if(std::fabs(config.param_command_timeout - this->command_timeout_) > EPSILON) {
+		this->command_timeout_ = config.param_command_timeout;
+		ROS_WARN("Updated user's command timeout to %f", this->command_timeout_);
+	}
+	
+	if(std::fabs(config.param_max_goal_distance - this->max_goal_distance_) > EPSILON) {
+		this->max_goal_distance_ = config.param_max_goal_distance;
+		ROS_WARN("Updated max user's goal distance to %f", this->max_goal_distance_);
+	}
+	
+	if(std::fabs(config.param_slope_distance - this->slope_distance_) > EPSILON) {
+		this->slope_distance_ = config.param_slope_distance;
+		ROS_WARN("Updated max user's slope distance to %f", this->slope_distance_);
+	}
+
 }
 
 bool DynamicGoals::configure(void) {
