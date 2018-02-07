@@ -62,7 +62,7 @@ target_link_libraries(dynamic_goals cnbiros_wheelchair_navigation ${catkin_LIBRA
 add_dependencies(dynamic_goals ${PROJECT_NAME}_gencfg)
 
 add_executable(user_goal src/user_goal.cpp)
-target_link_libraries(user_goal ${catkin_LIBRARIES})
+target_link_libraries(user_goal cnbiros_wheelchair_navigation ${catkin_LIBRARIES})
 
 add_executable(simple_navigation_goal src/simple_navigation_goal.cpp)
 target_link_libraries(simple_navigation_goal ${catkin_LIBRARIES})
