@@ -1,6 +1,7 @@
 #footprint: [ [-0.7, 0.38], [0.6, 0.38], [0.62, 0.0], [0.6, -0.38], [-0.5, -0.38] ]
-footprint: [ [-0.55, 0.3], [0.55, 0.3], [0.55, 0.2], [0.65, 0.2], [0.65, -0.2], [0.55, -0.2], [0.55, -0.3], [-0.55, -0.3] ]
-inflation_radius: 0.1
+#footprint: [ [-0.55, 0.3], [0.55, 0.3], [0.55, 0.2], [0.65, 0.2], [0.65, -0.2], [0.55, -0.2], [0.55, -0.3], [-0.55, -0.3] ]
+footprint: [ [-0.57, 0.36], [-0.57, -0.36], [0.47, -0.36], [0.47, 0.36] ]
+inflation_radius: 0.05
 
 obstacle_layer:
    enabled:               true
@@ -25,6 +26,7 @@ obstacle_layer:
 sonars_layer:
    enabled:                true
    clear_on_max_reading:   true
+   clear_threshold:        0.8
    topics: 
        - "/sonars/0xe0_filtered"
        - "/sonars/0xe2_filtered"
@@ -40,5 +42,5 @@ sonars_layer:
 inflation_layer:
    enabled:                true
    cost_scaling_factor:    10.0
-   inflation_radius:       0.1
+   inflation_radius:       0.05
 
