@@ -89,6 +89,7 @@ bool DynamicGoals::configure(void) {
 	this->max_goal_distance_	= 1.0f;
 	this->slope_distance_		= 3.0f;
 
+	this->is_map_available_		= false;
 
 	// Getting parameters
 	this->private_nh_.getParam("obstacles",				this->obstacle_topic_);
@@ -227,24 +228,20 @@ void DynamicGoals::CancelServerGoal(void) {
 
 void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& data) {
 
-	// Store costmap/sectorgrid data
     this->sector_data_ = data;
+	this->is_map_available_ = true;
 
-	//this->MakeGoal();
-	//this->CancelServerGoal();
-	//this->SendGoal();
+	this->MakeGoal();
+	this->CancelServerGoal();
+	this->SendGoal();
 }
 
 void DynamicGoals::user_callback(const cnbiros_wheelchair_navigation::SectorGrid& data) {
 
-	// Store user data
     this->user_data_ = data;
-
-	// Update the timer for command timeout
 	this->command_timer_.setPeriod(ros::Duration(this->command_timeout_));
 	this->command_timer_.start();
 
-	// Force new goal immediately
 	this->MakeGoal();
 	this->CancelServerGoal();
 	this->SendGoal();
@@ -539,56 +536,33 @@ void DynamicGoals::Run(void) {
 		if(this->actioncln_->isServerConnected()) {
 			
 			state = this->actioncln_->getState();
-		
-			// Check the current status
-			// If it is ABORTED or LOST, then clear costmap
-			if((state == actionlib::SimpleClientGoalState::ABORTED) ||
-			   (state == actionlib::SimpleClientGoalState::LOST) ) {
-				ROS_WARN("Goal aborted/lost. Clearing costmap...");
+			
+			if( (state != actionlib::SimpleClientGoalState::LOST) &&
+				(state != actionlib::SimpleClientGoalState::PENDING) &&
+				(state != actionlib::SimpleClientGoalState::ACTIVE) ) {
+				ROS_INFO_THROTTLE(2, "%s", state.toString().c_str());
+			}
+
+			if (state == actionlib::SimpleClientGoalState::SUCCEEDED) {
+				// service clear map
+				ROS_INFO("Goal reached. Forcing new goal");
+
+				this->MakeGoal();
+				this->CancelServerGoal();
+				this->SendGoal();
+			} else if (state == actionlib::SimpleClientGoalState::ABORTED) {
+				ROS_INFO("Goal aborted. Clearing costmap and forcing new goal");
 
 				if(this->srv_clear_costmap_.call(srvmsg_clearcostmap)) {
-					ROS_WARN("Costmap cleared");
+					ROS_INFO("Costmap cleared");
 				} else {
 					ROS_ERROR("Failed to request costmap clearing");
 				}
+
+				this->MakeGoal();
+				this->CancelServerGoal();
+				this->SendGoal();
 			}
-
-			// Force a new goal and cancel the previous ones (semi-autonomous
-			// behaviour).
-			// The new goal is based on the last costmap received and on the
-			// last user command received (if exists)
-			this->MakeGoal();
-			this->CancelServerGoal();
-			this->SendGoal();
-
-
-
-			//if( (state != actionlib::SimpleClientGoalState::LOST) &&
-			//	(state != actionlib::SimpleClientGoalState::PENDING) &&
-			//	(state != actionlib::SimpleClientGoalState::ACTIVE) ) {
-			//	ROS_INFO_THROTTLE(2, "%s", state.toString().c_str());
-			//}
-
-			//if (state == actionlib::SimpleClientGoalState::SUCCEEDED) {
-			//	// service clear map
-			//	ROS_INFO("Goal reached. Forcing new goal");
-
-			//	this->MakeGoal();
-			//	this->CancelServerGoal();
-			//	this->SendGoal();
-			//} else if (state == actionlib::SimpleClientGoalState::ABORTED) {
-			//	ROS_INFO("Goal aborted. Clearing costmap and forcing new goal");
-
-			//	if(this->srv_clear_costmap_.call(srvmsg_clearcostmap)) {
-			//		ROS_INFO("Costmap cleared");
-			//	} else {
-			//		ROS_ERROR("Failed to request costmap clearing");
-			//	}
-
-			//	this->MakeGoal();
-			//	this->CancelServerGoal();
-			//	this->SendGoal();
-			//}
 
 		}
 		ros::spinOnce();

@@ -87,7 +87,6 @@ class DynamicGoals {
 		cnbiros_wheelchair_navigation::SectorGrid sector_data_;
 		cnbiros_wheelchair_navigation::SectorGrid user_data_;
 
-		bool	is_map_available_;
 
 		float		command_timeout_;
 
