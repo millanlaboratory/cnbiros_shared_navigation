@@ -15,6 +15,6 @@ action_server:      "move_base"
 obstacle_strength:  0.2
 obstacle_decay:     0.5
 obstacle_occupancy: 9.5
-max_goal_distance:  1.5
-slope_distance:     3.0
-command_timeout:    5.0
+max_goal_distance:  2.0
+slope_distance:     5.0
+command_timeout:    8.0

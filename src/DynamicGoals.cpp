@@ -86,17 +86,17 @@ void DynamicGoals::reconfigure_callback(cnbiros_wheelchair_navigation::DynamicGo
 
 bool DynamicGoals::configure(void) {
 
-	this->obstacle_strength_	= 1.0f;
-	this->obstacle_decay_		= 1.0f;
-	this->obstacle_occupancy_	= 50.0f;
+	this->obstacle_strength_	= 0.2f;
+	this->obstacle_decay_		= 0.5f;
+	this->obstacle_occupancy_	= 9.5f;
 	this->obstacle_topic_		= "/sectorgrid";
 	this->target_topic_			= "/user";
 	this->actionsrv_			= "move_base";
 	this->frame_id_				= "base_link";
-	this->command_timeout_		= 5.0f;
-	this->max_goal_distance_	= 1.0f;
-	this->slope_distance_		= 3.0f;
-	this->update_rate_			= 1.0f;
+	this->command_timeout_		= 8.0f;
+	this->max_goal_distance_	= 2.0f;
+	this->slope_distance_		= 5.0f;
+	this->update_rate_			= 2.0f;
 
 
 	// Getting parameters
