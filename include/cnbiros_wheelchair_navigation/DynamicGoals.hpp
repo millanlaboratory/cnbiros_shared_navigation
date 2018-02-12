@@ -60,6 +60,8 @@ class DynamicGoals {
 
 	private:
 		void init_command_timer(float timeout);
+		void init_update_rate(float rate);
+		void change_update_rate(float rate);
 
     protected:
 		ros::NodeHandle nh_;
@@ -99,6 +101,9 @@ class DynamicGoals {
 
 		dynamic_reconfigure::Server<cnbiros_wheelchair_navigation::DynamicGoalsConfig> cfgserver;
 		dynamic_reconfigure::Server<cnbiros_wheelchair_navigation::DynamicGoalsConfig>::CallbackType f;
+
+		float update_rate_;
+		ros::Rate* rate_;
 };
 
     }

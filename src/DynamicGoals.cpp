@@ -29,6 +29,8 @@ DynamicGoals::DynamicGoals(void) : private_nh_("~") {
 	// Initialize user command timer
 	this->init_command_timer(this->command_timeout_);
 
+	// Initialize update rate
+	this->init_update_rate(this->update_rate_);
 
 	// Dynamic reconfiguration
 	this->f = boost::bind(&DynamicGoals::reconfigure_callback, this, _1, _2);
@@ -73,6 +75,12 @@ void DynamicGoals::reconfigure_callback(cnbiros_wheelchair_navigation::DynamicGo
 		this->slope_distance_ = config.param_slope_distance;
 		ROS_WARN("Updated max user's slope distance to %f", this->slope_distance_);
 	}
+	
+	if(std::fabs(config.param_update_rate - this->update_rate_) > EPSILON) {
+		this->update_rate_ = config.param_update_rate;
+		this->change_update_rate(this->update_rate_);
+		ROS_WARN("Updated rate to %f", this->update_rate_);
+	}
 
 }
 
@@ -88,6 +96,7 @@ bool DynamicGoals::configure(void) {
 	this->command_timeout_		= 5.0f;
 	this->max_goal_distance_	= 1.0f;
 	this->slope_distance_		= 3.0f;
+	this->update_rate_			= 1.0f;
 
 
 	// Getting parameters
@@ -99,6 +108,7 @@ bool DynamicGoals::configure(void) {
 	this->private_nh_.getParam("obstacle_decay",		this->obstacle_decay_);
 	this->private_nh_.getParam("obstacle_occupancy",	this->obstacle_occupancy_);
 	this->private_nh_.getParam("command_timeout",		this->command_timeout_);
+	this->private_nh_.getParam("update_rate",		this->update_rate_);
 	
 	this->private_nh_.getParam("max_goal_distance",		this->max_goal_distance_);
 	this->private_nh_.getParam("slope_distance",		this->slope_distance_);
@@ -113,6 +123,7 @@ bool DynamicGoals::configure(void) {
 	ROS_INFO("DynamicGoals command timeout:				%f", this->command_timeout_);
 	ROS_INFO("DynamicGoals max goal distance:			%f", this->max_goal_distance_);
 	ROS_INFO("DynamicGoals slope distance:				%f", this->slope_distance_);
+	ROS_INFO("DynamicGoals update rate:					%f", this->update_rate_);
 
 	return true;
 }
@@ -124,6 +135,17 @@ void DynamicGoals::init_command_timer(float timeout) {
 						   &DynamicGoals::on_reset_command_user,
 						   this);
 	ROS_INFO("Command timer initialize with %f timeout", this->command_timeout_);
+}
+
+
+void DynamicGoals::init_update_rate(float rate) {
+
+	this->rate_ = new ros::Rate(rate);
+}
+
+void DynamicGoals::change_update_rate(float rate) {
+	delete this->rate_;
+	init_update_rate(rate);
 }
 
 void DynamicGoals::on_reset_command_user(const ros::TimerEvent& event) {
@@ -592,6 +614,7 @@ void DynamicGoals::Run(void) {
 
 		}
 		ros::spinOnce();
+		this->rate_->sleep();
     }
 
 }
