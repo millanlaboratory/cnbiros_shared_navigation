@@ -145,7 +145,21 @@ bool ProximitySector::FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg, floa
 
 
 bool ProximitySector::FromPoint(const geometry_msgs::PointStamped& msg) {
-	ROS_WARN_THROTTLE(10, "From point conversion not implemented yet");
+
+	geometry_msgs::PointStamped	sector_point;
+	
+	// Apply transformation from msg frame to sector frame
+	try {
+		this->listener_.transformPoint(this->frame_id_, msg, sector_point);
+	
+		// If in the front, update the sectors.
+		if(sector_point.point.x >= 0) {
+			this->SetByCartesian(sector_point.point.x, -sector_point.point.y);
+		}
+	} catch(tf::TransformException& ex) {
+		ROS_ERROR("Cannot transform map to base point: %s", ex.what());
+		return false;
+	}
 }
 
 bool ProximitySector::FromMessage(const cnbiros_shared_navigation::ProximitySectorMsg& msg) {
