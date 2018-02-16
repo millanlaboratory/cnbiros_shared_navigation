@@ -52,9 +52,21 @@ void ProximitySector::Reset(void) {
 	this->reset_sectors();
 }
 
-void ProximitySector::Set(float angle, float radius) {
+void ProximitySector::SetByPolar(float angle, float radius) {
 
-	// Reset sectors
+	// Set sectors
+	this->set_sectors(angle, radius);
+}
+
+void ProximitySector::SetByCartesian(float x, float y) {
+	
+	float angle, radius;
+
+	// Cartesian to Polar conversion
+	angle  = atan2(x, y);
+	radius = hypot(x, y); 
+
+	// Set sectors
 	this->set_sectors(angle, radius);
 }
 
@@ -117,12 +129,9 @@ bool ProximitySector::FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg, floa
 		    try {
 				this->listener_.transformPoint(this->frame_id_, map_point, base_point);
 			
-				// If in the front, compute the current angle and radius. Then,
-				// update the sectors.
+				// If in the front, update the sectors.
 				if(base_point.point.x >= 0) {
-				    angle  = atan2(base_point.point.x, -base_point.point.y);
-				    radius = hypot(base_point.point.x, base_point.point.y); 
-				    this->Set(angle, radius);
+					this->SetByCartesian(base_point.point.x, -base_point.point.y);
 				}
 		    } catch(tf::TransformException& ex) {
 				ROS_ERROR("Cannot transform map to base point: %s", ex.what());
