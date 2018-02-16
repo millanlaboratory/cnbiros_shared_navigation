@@ -34,13 +34,13 @@ bool CostMapToProximitySector::configure(void) {
 	this->private_nh_.param<int>("num_sectors", this->nsectors_, 41);
    
 	// Dump parameters
-	ROS_INFO("ProximitySector frame_id:				%s", this->frame_id_.c_str());
-	ROS_INFO("ProximitySector subscribed topic:		%s", this->stopic_.c_str());
-	ROS_INFO("ProximitySector advertised topic:		%s", this->ptopic_.c_str());
-	ROS_INFO("ProximitySector threshold:			%f", this->threshold_);
-	ROS_INFO("ProximitySector minimum angle:		%f", this->min_angle_);
-	ROS_INFO("ProximitySector maximum angle:		%f", this->max_angle_);
-	ROS_INFO("ProximitySector number of sectors:	%d", this->nsectors_);
+	ROS_INFO("ProximitySector frame_id: %s", this->frame_id_.c_str());
+	ROS_INFO("ProximitySector subscribed topic: %s", this->stopic_.c_str());
+	ROS_INFO("ProximitySector advertised topic: %s", this->ptopic_.c_str());
+	ROS_INFO("ProximitySector threshold: %f", this->threshold_);
+	ROS_INFO("ProximitySector minimum angle: %f [deg]", this->min_angle_*180.0f/M_PI);
+	ROS_INFO("ProximitySector maximum angle: %f [deg]", this->max_angle_*180.0f/M_PI);
+	ROS_INFO("ProximitySector number of sectors: %d", this->nsectors_);
 	
 	// Initialize sector vector
     this->init_sectors();
@@ -60,13 +60,13 @@ void CostMapToProximitySector::on_dynamic_reconfiguration(cnbiros_shared_navigat
 	if(std::fabs(config.param_min_angle - this->min_angle_) > 0.00001f) {
 		this->min_angle_ = config.param_min_angle;
 		this->init_sectors();
-		ROS_WARN("Updated minimum sector angle to %f", this->min_angle_);
+		ROS_WARN("Updated minimum sector angle to %f [deg]", this->min_angle_*180.0f/M_PI);
 	}
 	
 	if(std::fabs(config.param_max_angle - this->max_angle_) > 0.00001f) {
 		this->max_angle_ = config.param_max_angle;
 		this->init_sectors();
-		ROS_WARN("Updated maximum sector angle to %f", this->max_angle_);
+		ROS_WARN("Updated maximum sector angle to %f [deg]", this->max_angle_*180.0f/M_PI);
 	}
 	
 	if(std::fabs(config.param_num_sectors - this->nsectors_) > 0.00001f) {
