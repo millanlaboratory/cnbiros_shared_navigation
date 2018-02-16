@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <launch>
 	<!--- Run Map server -->
-	<include file="$(find cnbiros_wheelchair_navigation)/launch/ros_wheelchair_map_server.launch" /> 
+	<include file="$(find cnbiros_shared_navigation)/launch/ros_wheelchair_map_server.launch" /> 
 
 	<!--- Run AMCL -->
-	<!-- <include file="$(find cnbiros_wheelchair_navigation)/launch/ros_wheelchair_amcl.launch" /> -->
+	<!-- <include file="$(find cnbiros_shared_navigation)/launch/ros_wheelchair_amcl.launch" /> -->
 
 	<!--- Run Move Base -->
-	<include file="$(find cnbiros_wheelchair_navigation)/launch/ros_wheelchair_movebase.launch" />
+	<include file="$(find cnbiros_shared_navigation)/launch/ros_wheelchair_movebase.launch" />
 	
 	<!--- Run Costmap2SectorGrid -->
-	<include file="$(find cnbiros_wheelchair_navigation)/launch/costmap_to_sectorgrid.launch" />
+	<include file="$(find cnbiros_shared_navigation)/launch/costmap_to_sectorgrid.launch" />
 </launch>

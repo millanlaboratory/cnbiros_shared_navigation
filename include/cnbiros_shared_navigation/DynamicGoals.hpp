@@ -7,12 +7,12 @@
 #include <actionlib/client/simple_action_client.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <std_srvs/Empty.h>
-#include "cnbiros_wheelchair_navigation/SectorGrid.h"
-//#include "cnbiros_wheelchair_navigation/ObstacleStrength.h"
-//#include "cnbiros_wheelchair_navigation/ObstacleDecay.h"
-#include "cnbiros_wheelchair_navigation/DynamicGoalsParameters.h"
+#include "cnbiros_shared_navigation/SectorGrid.h"
+//#include "cnbiros_shared_navigation/ObstacleStrength.h"
+//#include "cnbiros_shared_navigation/ObstacleDecay.h"
+#include "cnbiros_shared_navigation/DynamicGoalsParameters.h"
 #include <dynamic_reconfigure/server.h>
-#include "cnbiros_wheelchair_navigation/DynamicGoalsConfig.h"
+#include "cnbiros_shared_navigation/DynamicGoalsConfig.h"
 
 #define EPSILON	0.00001
 
@@ -39,19 +39,19 @@ class DynamicGoals {
 		bool configure(void);
 
     protected:
-		void reconfigure_callback(cnbiros_wheelchair_navigation::DynamicGoalsConfig &config, uint32_t level);
+		void reconfigure_callback(cnbiros_shared_navigation::DynamicGoalsConfig &config, uint32_t level);
 
-		virtual void callback(const cnbiros_wheelchair_navigation::SectorGrid& data);
-		virtual void user_callback(const cnbiros_wheelchair_navigation::SectorGrid& data);
-		virtual float compute_orientation(const cnbiros_wheelchair_navigation::SectorGrid& data);
-		virtual float compute_orientation_user(const cnbiros_wheelchair_navigation::SectorGrid& data);
-		virtual float compute_position_exponential(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
+		virtual void callback(const cnbiros_shared_navigation::SectorGrid& data);
+		virtual void user_callback(const cnbiros_shared_navigation::SectorGrid& data);
+		virtual float compute_orientation(const cnbiros_shared_navigation::SectorGrid& data);
+		virtual float compute_orientation_user(const cnbiros_shared_navigation::SectorGrid& data);
+		virtual float compute_position_exponential(const cnbiros_shared_navigation::SectorGrid& data, float w);
 
-		virtual float compute_position_logistic(const cnbiros_wheelchair_navigation::SectorGrid& data, float w);
+		virtual float compute_position_logistic(const cnbiros_shared_navigation::SectorGrid& data, float w);
 
 
-		bool on_set_parameters(cnbiros_wheelchair_navigation::DynamicGoalsParameters::Request& req,
-							   cnbiros_wheelchair_navigation::DynamicGoalsParameters::Response& res);
+		bool on_set_parameters(cnbiros_shared_navigation::DynamicGoalsParameters::Request& req,
+							   cnbiros_shared_navigation::DynamicGoalsParameters::Response& res);
 
 		void on_reset_command_user(const ros::TimerEvent& event);
 
@@ -86,8 +86,8 @@ class DynamicGoals {
 		std::string		frame_id_;
 		move_base_msgs::MoveBaseGoal	goal_;
 
-		cnbiros_wheelchair_navigation::SectorGrid sector_data_;
-		cnbiros_wheelchair_navigation::SectorGrid user_data_;
+		cnbiros_shared_navigation::SectorGrid sector_data_;
+		cnbiros_shared_navigation::SectorGrid user_data_;
 
 
 		float		command_timeout_;
@@ -99,8 +99,8 @@ class DynamicGoals {
 		ros::Timer	command_timer_;
 		
 
-		dynamic_reconfigure::Server<cnbiros_wheelchair_navigation::DynamicGoalsConfig> cfgserver;
-		dynamic_reconfigure::Server<cnbiros_wheelchair_navigation::DynamicGoalsConfig>::CallbackType f;
+		dynamic_reconfigure::Server<cnbiros_shared_navigation::DynamicGoalsConfig> cfgserver;
+		dynamic_reconfigure::Server<cnbiros_shared_navigation::DynamicGoalsConfig>::CallbackType f;
 
 		float update_rate_;
 		ros::Rate* rate_;

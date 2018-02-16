@@ -1,7 +1,7 @@
 #ifndef CNBIROS_NAVIGATION_COSTMAP_TO_SECTORGRID_CPP
 #define CNBIROS_NAVIGATION_COSTMAP_TO_SECTORGRID_CPP
 
-#include "cnbiros_wheelchair_navigation/CostMapToSectorGrid.hpp"
+#include "cnbiros_shared_navigation/CostMapToSectorGrid.hpp"
 
 namespace cnbiros {
     namespace navigation {
@@ -31,7 +31,7 @@ CostMapToSectorGrid::CostMapToSectorGrid(void) : private_nh_("~"), listener(ros:
     // Initialize subscriber and publisher
     this->sub_ = this->nh_.subscribe(this->stopic_, 50, 
 				    &CostMapToSectorGrid::callback, this);
-    this->pub_ = this->nh_.advertise<cnbiros_wheelchair_navigation::SectorGrid>(
+    this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::SectorGrid>(
 				    this->ptopic_, 1000);
 }
 
@@ -163,7 +163,7 @@ void CostMapToSectorGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
     }
 
 
-    cnbiros_wheelchair_navigation::SectorGrid data_out;
+    cnbiros_shared_navigation::SectorGrid data_out;
 
     data_out.header.frame_id = this->frame_id_;
     data_out.header.stamp    = ros::Time::now();
@@ -178,8 +178,8 @@ void CostMapToSectorGrid::callback(const nav_msgs::OccupancyGrid& data_in) {
 }
 
 
-bool CostMapToSectorGrid::on_set_sector_number(cnbiros_wheelchair_navigation::SectorNumber::Request &req,
-											   cnbiros_wheelchair_navigation::SectorNumber::Response &res) {
+bool CostMapToSectorGrid::on_set_sector_number(cnbiros_shared_navigation::SectorNumber::Request &req,
+											   cnbiros_shared_navigation::SectorNumber::Response &res) {
 
 	if(req.num_sectors <= 0) {
 		ROS_ERROR("Number of sectors must be > 0");
@@ -194,8 +194,8 @@ bool CostMapToSectorGrid::on_set_sector_number(cnbiros_wheelchair_navigation::Se
 	return res.result;
 }
 
-bool CostMapToSectorGrid::on_set_sector_minangle(cnbiros_wheelchair_navigation::SectorMinAngle::Request &req,
-											     cnbiros_wheelchair_navigation::SectorMinAngle::Response &res) {
+bool CostMapToSectorGrid::on_set_sector_minangle(cnbiros_shared_navigation::SectorMinAngle::Request &req,
+											     cnbiros_shared_navigation::SectorMinAngle::Response &res) {
 
 	this->min_angle_ = req.min_angle;
 	this->configure_sectors(this->nsectors_, this->min_angle_, this->max_angle_);
@@ -205,8 +205,8 @@ bool CostMapToSectorGrid::on_set_sector_minangle(cnbiros_wheelchair_navigation::
 	return res.result;
 }
 
-bool CostMapToSectorGrid::on_set_sector_maxangle(cnbiros_wheelchair_navigation::SectorMaxAngle::Request &req,
-											     cnbiros_wheelchair_navigation::SectorMaxAngle::Response &res) {
+bool CostMapToSectorGrid::on_set_sector_maxangle(cnbiros_shared_navigation::SectorMaxAngle::Request &req,
+											     cnbiros_shared_navigation::SectorMaxAngle::Response &res) {
 
 	this->max_angle_ = req.max_angle;
 	this->configure_sectors(this->nsectors_, this->min_angle_, this->max_angle_);
@@ -216,8 +216,8 @@ bool CostMapToSectorGrid::on_set_sector_maxangle(cnbiros_wheelchair_navigation::
 	return res.result;
 }
 
-bool CostMapToSectorGrid::on_set_sector_threshold(cnbiros_wheelchair_navigation::SectorThreshold::Request &req,
-											      cnbiros_wheelchair_navigation::SectorThreshold::Response &res) {
+bool CostMapToSectorGrid::on_set_sector_threshold(cnbiros_shared_navigation::SectorThreshold::Request &req,
+											      cnbiros_shared_navigation::SectorThreshold::Response &res) {
 
 	this->threshold_ = req.threshold;
 	ROS_INFO("Updated the threshold to: %f", this->threshold_);

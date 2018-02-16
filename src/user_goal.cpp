@@ -7,7 +7,7 @@
 #include <limits>
 
 #include <ros/ros.h>
-#include "cnbiros_wheelchair_navigation/SectorGrid.h"
+#include "cnbiros_shared_navigation/SectorGrid.h"
 
 #define CMD_FORWARD	'w'
 #define CMD_LEFT	'a'
@@ -77,7 +77,7 @@ int main(int argc, char** argv){
 
 
 	// Initialize SectorGrid message
-	cnbiros_wheelchair_navigation::SectorGrid user_data;
+	cnbiros_shared_navigation::SectorGrid user_data;
 	user_data.header.frame_id	= frame_id;
 	user_data.min_angle			= min_angle;
 	user_data.max_angle			= max_angle;
@@ -88,7 +88,7 @@ int main(int argc, char** argv){
 	user_data.values.assign(nsectors, std::numeric_limits<float>::infinity());
 	
 	// Advertise topic
-    pub = node.advertise<cnbiros_wheelchair_navigation::SectorGrid>(topic, 1000);
+    pub = node.advertise<cnbiros_shared_navigation::SectorGrid>(topic, 1000);
 
     nonblock(NB_ENABLE);
     while(ros::ok() & isquit == false) {

@@ -1,7 +1,7 @@
 #ifndef CNBIROS_NAVIGATION_DYNAMICGOALS_CPP
 #define CNBIROS_NAVIGATION_DYNAMICGOALS_CPP
 
-#include "cnbiros_wheelchair_navigation/DynamicGoals.hpp"
+#include "cnbiros_shared_navigation/DynamicGoals.hpp"
 
 namespace cnbiros {
     namespace navigation {
@@ -43,7 +43,7 @@ DynamicGoals::~DynamicGoals(void) {
 	delete this->actioncln_;
 }
 
-void DynamicGoals::reconfigure_callback(cnbiros_wheelchair_navigation::DynamicGoalsConfig &config, 
+void DynamicGoals::reconfigure_callback(cnbiros_shared_navigation::DynamicGoalsConfig &config, 
 										uint32_t level) {
 
 	if(std::fabs(config.param_obstacle_strength - this->obstacle_strength_) > EPSILON) {
@@ -247,7 +247,7 @@ void DynamicGoals::CancelServerGoal(void) {
 }
 
 
-void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& data) {
+void DynamicGoals::callback(const cnbiros_shared_navigation::SectorGrid& data) {
 
 	// Store costmap/sectorgrid data
     this->sector_data_ = data;
@@ -257,7 +257,7 @@ void DynamicGoals::callback(const cnbiros_wheelchair_navigation::SectorGrid& dat
 	//this->SendGoal();
 }
 
-void DynamicGoals::user_callback(const cnbiros_wheelchair_navigation::SectorGrid& data) {
+void DynamicGoals::user_callback(const cnbiros_shared_navigation::SectorGrid& data) {
 
 	// Store user data
     this->user_data_ = data;
@@ -272,7 +272,7 @@ void DynamicGoals::user_callback(const cnbiros_wheelchair_navigation::SectorGrid
 	this->SendGoal();
 }
 
-float DynamicGoals::compute_orientation(const cnbiros_wheelchair_navigation::SectorGrid& data) {
+float DynamicGoals::compute_orientation(const cnbiros_shared_navigation::SectorGrid& data) {
 
     unsigned int i;
     unsigned int nsectors;
@@ -310,7 +310,7 @@ float DynamicGoals::compute_orientation(const cnbiros_wheelchair_navigation::Sec
 
 }
 
-float DynamicGoals::compute_orientation_user(const cnbiros_wheelchair_navigation::SectorGrid& data) {
+float DynamicGoals::compute_orientation_user(const cnbiros_shared_navigation::SectorGrid& data) {
 
     unsigned int i;
     unsigned int nsectors;
@@ -343,7 +343,7 @@ float DynamicGoals::compute_orientation_user(const cnbiros_wheelchair_navigation
     return w;
 }
 
-float DynamicGoals::compute_position_exponential(const cnbiros_wheelchair_navigation::SectorGrid& data, float wescape) {
+float DynamicGoals::compute_position_exponential(const cnbiros_shared_navigation::SectorGrid& data, float wescape) {
 
 	unsigned int idsector;
 	float cvalue;
@@ -372,7 +372,7 @@ float DynamicGoals::compute_position_exponential(const cnbiros_wheelchair_naviga
 
 }
 
-float DynamicGoals::compute_position_logistic(const cnbiros_wheelchair_navigation::SectorGrid& data, float wescape) {
+float DynamicGoals::compute_position_logistic(const cnbiros_shared_navigation::SectorGrid& data, float wescape) {
 
 	unsigned int idsector;
 	float cvalue;
@@ -397,7 +397,7 @@ float DynamicGoals::compute_position_logistic(const cnbiros_wheelchair_navigatio
 
 }
 /*
-float DynamicGoals::compute_position_linear(const cnbiros_wheelchair_navigation::SectorGrid& data, float wescape) {
+float DynamicGoals::compute_position_linear(const cnbiros_shared_navigation::SectorGrid& data, float wescape) {
 
 	unsigned int idsector;
 	float cvalue;
@@ -444,7 +444,7 @@ unsigned int DynamicGoals::angle2sector(float angle, float min_angle, float max_
 }
 
 /*
-float DynamicGoals::compute_position(const cnbiros_wheelchair_navigation::SectorGrid& data) {
+float DynamicGoals::compute_position(const cnbiros_shared_navigation::SectorGrid& data) {
     
     float tposition = 1.0f;
     float cradius, cangle;
@@ -504,8 +504,8 @@ float DynamicGoals::compute_position(const cnbiros_wheelchair_navigation::Sector
     return tposition;
 }
 */
-bool DynamicGoals::on_set_parameters(cnbiros_wheelchair_navigation::DynamicGoalsParameters::Request& req,
-									 cnbiros_wheelchair_navigation::DynamicGoalsParameters::Response& res) {
+bool DynamicGoals::on_set_parameters(cnbiros_shared_navigation::DynamicGoalsParameters::Request& req,
+									 cnbiros_shared_navigation::DynamicGoalsParameters::Response& res) {
 
 	res.result = true;
 

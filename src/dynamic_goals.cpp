@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include "cnbiros_wheelchair_navigation/DynamicGoals.hpp"
+#include "cnbiros_shared_navigation/DynamicGoals.hpp"
 
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "dynamic_goals");

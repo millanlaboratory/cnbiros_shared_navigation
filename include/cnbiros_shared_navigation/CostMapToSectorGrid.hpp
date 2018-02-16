@@ -9,11 +9,11 @@
 #include <tf/transform_listener.h>
 #include <grid_map_ros/grid_map_ros.hpp>
 #include <costmap_2d/cost_values.h>
-#include "cnbiros_wheelchair_navigation/SectorGrid.h"
-#include "cnbiros_wheelchair_navigation/SectorNumber.h"
-#include "cnbiros_wheelchair_navigation/SectorMaxAngle.h"
-#include "cnbiros_wheelchair_navigation/SectorMinAngle.h"
-#include "cnbiros_wheelchair_navigation/SectorThreshold.h"
+#include "cnbiros_shared_navigation/SectorGrid.h"
+#include "cnbiros_shared_navigation/SectorNumber.h"
+#include "cnbiros_shared_navigation/SectorMaxAngle.h"
+#include "cnbiros_shared_navigation/SectorMinAngle.h"
+#include "cnbiros_shared_navigation/SectorThreshold.h"
 
 namespace cnbiros {
     namespace navigation {
@@ -32,14 +32,14 @@ class CostMapToSectorGrid {
 		void update_sectors(float angle, float radius);
 		void reset_sectors(void);
 
-		bool on_set_sector_number(cnbiros_wheelchair_navigation::SectorNumber::Request &req,
-								  cnbiros_wheelchair_navigation::SectorNumber::Response &res);
-		bool on_set_sector_minangle(cnbiros_wheelchair_navigation::SectorMinAngle::Request &req,
-								    cnbiros_wheelchair_navigation::SectorMinAngle::Response &res);
-		bool on_set_sector_maxangle(cnbiros_wheelchair_navigation::SectorMaxAngle::Request &req,
-									cnbiros_wheelchair_navigation::SectorMaxAngle::Response &res);
-		bool on_set_sector_threshold(cnbiros_wheelchair_navigation::SectorThreshold::Request &req,
-									 cnbiros_wheelchair_navigation::SectorThreshold::Response &res);
+		bool on_set_sector_number(cnbiros_shared_navigation::SectorNumber::Request &req,
+								  cnbiros_shared_navigation::SectorNumber::Response &res);
+		bool on_set_sector_minangle(cnbiros_shared_navigation::SectorMinAngle::Request &req,
+								    cnbiros_shared_navigation::SectorMinAngle::Response &res);
+		bool on_set_sector_maxangle(cnbiros_shared_navigation::SectorMaxAngle::Request &req,
+									cnbiros_shared_navigation::SectorMaxAngle::Response &res);
+		bool on_set_sector_threshold(cnbiros_shared_navigation::SectorThreshold::Request &req,
+									 cnbiros_shared_navigation::SectorThreshold::Response &res);
 
     protected:
 		ros::NodeHandle nh_;

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <node pkg="cnbiros_wheelchair_navigation" type="dynamic_goals" output="screen" name="dynamic_goals" >
-	  <rosparam file="$(find cnbiros_wheelchair_navigation)/params/dynamic_goals_params.yaml" command="load" />
+  <node pkg="cnbiros_shared_navigation" type="dynamic_goals" output="screen" name="dynamic_goals" >
+	  <rosparam file="$(find cnbiros_shared_navigation)/params/dynamic_goals_params.yaml" command="load" />
   </node>
 </launch>
