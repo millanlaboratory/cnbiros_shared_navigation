@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>cnbiros_wheelchair_navigation</name>
-  <version>0.1.0</version>
-  <description>CNBIROS Wheelchair Navigation library</description>
+  <name>cnbiros_shared_navigation</name>
+  <version>0.2.0</version>
+  <description>CNBIROS Shared Navigation package</description>
   <author email="luca.tonin@epfl.ch">Luca Tonin</author>
   <maintainer email="luca.tonin@epfl.ch">Luca Tonin</maintainer>
 
