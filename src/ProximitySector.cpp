@@ -66,7 +66,7 @@ float ProximitySector::GetMaxAngle(void) {
 	return this->max_angle_;
 }
 
-float ProximitySector::GetResolution(void) {
+int ProximitySector::GetResolution(void) {
 	return this->nsectors_;
 }
 
@@ -76,13 +76,13 @@ void ProximitySector::Reset(void) {
 	this->reset_sectors();
 }
 
-void ProximitySector::SetByPolar(float angle, float radius) {
+bool ProximitySector::SetByPolar(float angle, float radius) {
 
 	// Set sectors
-	this->set_sectors(angle, radius);
+	return this->set_sectors(angle, radius);
 }
 
-void ProximitySector::SetByCartesian(float x, float y) {
+bool ProximitySector::SetByCartesian(float x, float y) {
 	
 	float angle, radius;
 
@@ -91,7 +91,7 @@ void ProximitySector::SetByCartesian(float x, float y) {
 	radius = hypot(x, y); 
 
 	// Set sectors
-	this->set_sectors(angle, radius);
+	return this->SetByPolar(angle, radius);
 }
 
 void ProximitySector::Dump(void) {
@@ -117,6 +117,7 @@ bool ProximitySector::FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg, floa
     geometry_msgs::PointStamped map_point;
     geometry_msgs::PointStamped base_point;
     float value, radius, angle;
+	bool retval = true;
   
 	// Convert Occupancy Grid to GridMap (for conveniency)
     if(grid_map::GridMapRosConverter::fromOccupancyGrid(msg, "costmap", map) == false) {
@@ -154,36 +155,42 @@ bool ProximitySector::FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg, floa
 				this->listener_.transformPoint(this->frame_id_, map_point, base_point);
 			
 				// If in the front, update the sectors.
-				if(base_point.point.x >= 0) {
+				if(base_point.point.x > 0.0f) {
 					this->SetByCartesian(base_point.point.x, -base_point.point.y);
 				}
 		    } catch(tf::TransformException& ex) {
 				ROS_ERROR("Cannot transform map to base point: %s", ex.what());
-				return false;
+				retval = false;
 		    }
 		}
     }
 
-	return true;
+	return retval;
 }
 
 
 bool ProximitySector::FromPoint(const geometry_msgs::PointStamped& msg) {
 
 	geometry_msgs::PointStamped	sector_point;
+	bool retval = true;
+	
+	// Reset current sectors
+	this->Reset();
 	
 	// Apply transformation from msg frame to sector frame
 	try {
 		this->listener_.transformPoint(this->frame_id_, msg, sector_point);
 	
 		// If in the front, update the sectors.
-		if(sector_point.point.x >= 0) {
+		if(sector_point.point.x > 0.0f) {
 			this->SetByCartesian(sector_point.point.x, -sector_point.point.y);
 		}
 	} catch(tf::TransformException& ex) {
-		ROS_ERROR("Cannot transform map to base point: %s", ex.what());
-		return false;
+		ROS_ERROR("Cannot transform point frame to sector frame: %s", ex.what());
+		retval = false;
 	}
+
+	return retval;
 }
 
 bool ProximitySector::FromMessage(const cnbiros_shared_navigation::ProximitySectorMsg& msg) {
@@ -200,6 +207,8 @@ bool ProximitySector::FromMessage(const cnbiros_shared_navigation::ProximitySect
 
 	// Copy the sector values
 	this->sectors_ = msg.values;
+
+	return true;
 }
 
 cnbiros_shared_navigation::ProximitySectorMsg ProximitySector::ToMessage(void) {
@@ -213,6 +222,8 @@ cnbiros_shared_navigation::ProximitySectorMsg ProximitySector::ToMessage(void) {
     msg.max_angle		= this->max_angle_;
     msg.nsectors		= this->nsectors_;
     msg.step			= this->step_;
+
+	return msg;
 }
 
 
@@ -232,20 +243,27 @@ void ProximitySector::reset_sectors(void) {
     this->sectors_.assign(this->nsectors_, std::numeric_limits<float>::infinity());
 }
 
-void ProximitySector::set_sectors(float angle, float radius) {
+bool ProximitySector::set_sectors(float angle, float radius) {
 
     unsigned int idsector;
     float cvalue;
+	bool retval = false;
    
     // Determine the current sector, given the angle
     idsector = std::floor(angle/this->step_);
 
-    // Get the current value of the sector
-    cvalue = this->sectors_.at(idsector);
+	if(idsector < this->sectors_.size()) {
+		// Get the current value of the sector
+    	cvalue = this->sectors_.at(idsector);
 
-    // Replace the value of the sector with the minimum between the current
-    // value and the given radius
-    this->sectors_.at(idsector) = std::min(cvalue, radius);
+    	// Replace the value of the sector with the minimum between the current
+    	// value and the given radius
+    	this->sectors_.at(idsector) = std::min(cvalue, radius);
+
+		retval = true;
+	}
+
+	return retval;
 }
 
 void ProximitySector::dump_sectors(void) {

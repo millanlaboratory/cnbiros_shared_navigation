@@ -12,7 +12,7 @@
 #include <dynamic_reconfigure/server.h>
 
 // Package includes
-#include "cnbiros_shared_navigation/ProximitySectorMsg.h"
+#include "cnbiros_shared_navigation/ProximitySector.hpp"
 #include "cnbiros_shared_navigation/PointSectorConfig.h"
 
 namespace cnbiros {
@@ -25,13 +25,6 @@ class PointToProximitySector {
 		virtual ~PointToProximitySector(void);
 		
 		bool configure(void);
-
-	protected:
-		void init_sectors(void);
-		void reset_sectors(void);
-		void set_sectors(float angle, float radius);
-		void dump_sectors(void);
-		void debug_dump_sectors(void);
     
 	private:
 		void on_received_point(const geometry_msgs::PointStamped& msgin);
@@ -47,19 +40,10 @@ class PointToProximitySector {
 		std::string		stopic_;
 		std::string 	ptopic_;
 
-		tf::TransformListener	listener_;
-		
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::PointSectorConfig> cfgserver_;
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::PointSectorConfig>::CallbackType f_;
 
-		std::string frame_id_;
-		float min_angle_;
-		float max_angle_;
-		float step_;
-		int nsectors_;
-		
-		std::vector<float> sectors_;
-
+		ProximitySector*	sector_;
 };
 
 

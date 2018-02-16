@@ -39,8 +39,8 @@ class ProximitySector {
 
 		float GetAngle(const  ProximitySectorIt& it);
 		float GetRadius(const ProximitySectorIt& it);
-		void  SetByPolar(float angle, float radius);
-		void  SetByCartesian(float x, float y);
+		bool  SetByPolar(float angle, float radius);
+		bool  SetByCartesian(float x, float y);
 
 		void  Reset(void);
 		void  Dump(void);
@@ -54,7 +54,7 @@ class ProximitySector {
 	protected:
 		void init_sectors(void);
 		void reset_sectors(void);
-		void set_sectors(float angle, float radius);
+		bool set_sectors(float angle, float radius);
 		void get_sectors(float angle);
 
 		void dump_sectors(void);
