@@ -1,0 +1,7 @@
+threshold:  100.0
+frame_id:   "base_link"
+costmap:    "/move_base/local_costmap/costmap"
+sectorgrid: "/proximitysector"
+min_angle:  -1.570796325
+max_angle:  1.570796325 
+nsectors:   41

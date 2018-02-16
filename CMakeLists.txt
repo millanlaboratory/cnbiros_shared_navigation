@@ -10,21 +10,18 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 #add dynamic reconfigure api
 #find_package(catkin REQUIRED dynamic_reconfigure)
 generate_dynamic_reconfigure_options(
+	cfg/ProximitySector.cfg
 	cfg/DynamicGoals.cfg
   #...
 )
 
 add_message_files(
 	FILES
-	SectorGrid.msg
+	ProximitySector.msg
 )
 
 add_service_files(
   FILES
-  SectorNumber.srv
-  SectorMinAngle.srv
-  SectorMaxAngle.srv
-  SectorThreshold.srv
   DynamicGoalsParameters.srv
 )
 
@@ -48,22 +45,26 @@ catkin_package(
 	grid_map_ros
 )
 
+#add_library(cnbiros_shared_navigation 
+#			src/CostMapToProximitySector.cpp)
+#			src/DynamicGoals.cpp)
 add_library(cnbiros_shared_navigation 
-			src/CostMapToSectorGrid.cpp
-			src/DynamicGoals.cpp)
+			src/CostMapToProximitySector.cpp)
 add_dependencies(cnbiros_shared_navigation cnbiros_shared_navigation_generate_messages_cpp)
 target_link_libraries(cnbiros_shared_navigation ${catkin_LIBRARIES})
 
-add_executable(costmap_to_sectorgrid src/costmap_to_sectorgrid.cpp)
-target_link_libraries(costmap_to_sectorgrid cnbiros_shared_navigation ${catkin_LIBRARIES})
 
-add_executable(dynamic_goals src/dynamic_goals.cpp)
-target_link_libraries(dynamic_goals cnbiros_shared_navigation ${catkin_LIBRARIES})
-add_dependencies(dynamic_goals ${PROJECT_NAME}_gencfg)
+add_executable(costmap_to_proximitysector src/costmap_to_proximitysector.cpp)
+target_link_libraries(costmap_to_proximitysector cnbiros_shared_navigation ${catkin_LIBRARIES})
+add_dependencies(costmap_to_proximitysector ${PROJECT_NAME}_gencfg)
 
-add_executable(user_goal src/user_goal.cpp)
-target_link_libraries(user_goal cnbiros_shared_navigation ${catkin_LIBRARIES})
-
-add_executable(simple_navigation_goal src/simple_navigation_goal.cpp)
-target_link_libraries(simple_navigation_goal ${catkin_LIBRARIES})
+#add_executable(dynamic_goals src/dynamic_goals.cpp)
+#target_link_libraries(dynamic_goals cnbiros_shared_navigation ${catkin_LIBRARIES})
+#add_dependencies(dynamic_goals ${PROJECT_NAME}_gencfg)
+#
+#add_executable(user_goal src/user_goal.cpp)
+#target_link_libraries(user_goal cnbiros_shared_navigation ${catkin_LIBRARIES})
+#
+#add_executable(simple_navigation_goal src/simple_navigation_goal.cpp)
+#target_link_libraries(simple_navigation_goal ${catkin_LIBRARIES})
 

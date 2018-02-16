@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="cnbiros_shared_navigation" type="costmap_to_proximitysector" output="screen" name="costmap_to_proximitysector" >
+	  <rosparam file="$(find cnbiros_shared_navigation)/params/default_proximitysector_params.yaml" command="load" />
+  </node>
+</launch>
