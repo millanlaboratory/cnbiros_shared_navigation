@@ -13,7 +13,7 @@ CostMapToProximitySector::CostMapToProximitySector(void) : private_nh_("~"), lis
 
     // Initialize subscriber and publisher
     this->sub_ = this->nh_.subscribe(this->stopic_, 50, &CostMapToProximitySector::on_received_costmap, this);
-    this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximitySector>(this->ptopic_, 1000);
+    this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximitySectorMsg>(this->ptopic_, 1000);
 
 	// Initialize dynamic reconfiguration server
 	this->f_ = boost::bind(&CostMapToProximitySector::on_dynamic_reconfiguration, this, _1, _2);
@@ -146,7 +146,7 @@ void CostMapToProximitySector::on_received_costmap(const nav_msgs::OccupancyGrid
     grid_map::Position			position;
     geometry_msgs::PointStamped map_point;
     geometry_msgs::PointStamped base_point;
-    cnbiros_shared_navigation::ProximitySector msgout;
+    cnbiros_shared_navigation::ProximitySectorMsg msgout;
     float value, radius, angle;
   
 	// Convert Occupancy Grid to GridMap (for conveniency)

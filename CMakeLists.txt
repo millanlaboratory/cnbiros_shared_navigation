@@ -18,7 +18,7 @@ generate_dynamic_reconfigure_options(
 
 add_message_files(
 	FILES
-	ProximitySector.msg
+	ProximitySectorMsg.msg
 )
 
 add_service_files(
@@ -50,6 +50,7 @@ catkin_package(
 #			src/CostMapToProximitySector.cpp)
 #			src/DynamicGoals.cpp)
 add_library(cnbiros_shared_navigation 
+			src/ProximitySector.cpp
 			src/CostMapToProximitySector.cpp
 			src/PointToProximitySector.cpp)
 add_dependencies(cnbiros_shared_navigation cnbiros_shared_navigation_generate_messages_cpp)

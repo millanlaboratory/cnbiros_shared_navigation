@@ -15,7 +15,7 @@
 #include <dynamic_reconfigure/server.h>
 
 // Package includes
-#include "cnbiros_shared_navigation/ProximitySector.h"
+#include "cnbiros_shared_navigation/ProximitySectorMsg.h"
 #include "cnbiros_shared_navigation/CostMapSectorConfig.h"
 
 namespace cnbiros {

@@ -12,7 +12,7 @@
 #include <dynamic_reconfigure/server.h>
 
 // Package includes
-#include "cnbiros_shared_navigation/ProximitySector.h"
+#include "cnbiros_shared_navigation/ProximitySectorMsg.h"
 #include "cnbiros_shared_navigation/PointSectorConfig.h"
 
 namespace cnbiros {

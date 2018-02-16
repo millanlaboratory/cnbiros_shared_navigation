@@ -13,7 +13,7 @@ PointToProximitySector::PointToProximitySector(void) : private_nh_("~"), listene
 
     // Initialize subscriber and publisher
     this->sub_ = this->nh_.subscribe(this->stopic_, 50, &PointToProximitySector::on_received_point, this);
-    this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximitySector>(this->ptopic_, 1000);
+    this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximitySectorMsg>(this->ptopic_, 1000);
 
 	// Initialize dynamic reconfiguration server
 	this->f_ = boost::bind(&PointToProximitySector::on_dynamic_reconfiguration, this, _1, _2);
