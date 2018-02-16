@@ -25,22 +25,22 @@ CostMapToProximitySector::~CostMapToProximitySector(void) {}
 bool CostMapToProximitySector::configure(void) {
 
 	// Getting parameters
-	this->private_nh_.param<std::string>("frame_id", this->frame_id_, "base_link");
-	this->private_nh_.param<std::string>("costmap", this->stopic_, "/move_base/local_costmap/costmap");
-	this->private_nh_.param<std::string>("proximitysector", this->ptopic_, "/proximitysector");
-	this->private_nh_.param<float>("threshold",	this->threshold_, 100.0f);
-	this->private_nh_.param<float>("min_angle",  this->min_angle_, -M_PI/2.0f);
-	this->private_nh_.param<float>("max_angle",  this->max_angle_, M_PI/2.0f);
-	this->private_nh_.param<int>("num_sectors", this->nsectors_, 41);
+	this->private_nh_.param<std::string>("costmap/frame_id", this->frame_id_, "base_link");
+	this->private_nh_.param<std::string>("costmap/source", this->stopic_, "/move_base/local_costmap/costmap");
+	this->private_nh_.param<std::string>("costmap/sectors", this->ptopic_, "/proximitysector");
+	this->private_nh_.param<float>("costmap/threshold",	this->threshold_, 100.0f);
+	this->private_nh_.param<float>("costmap/min_angle",  this->min_angle_, -M_PI/2.0f);
+	this->private_nh_.param<float>("costmap/max_angle",  this->max_angle_, M_PI/2.0f);
+	this->private_nh_.param<int>("costmap/nsectors", this->nsectors_, 41);
    
 	// Dump parameters
-	ROS_INFO("ProximitySector frame_id: %s", this->frame_id_.c_str());
-	ROS_INFO("ProximitySector subscribed topic: %s", this->stopic_.c_str());
-	ROS_INFO("ProximitySector advertised topic: %s", this->ptopic_.c_str());
-	ROS_INFO("ProximitySector threshold: %f", this->threshold_);
-	ROS_INFO("ProximitySector minimum angle: %f [deg]", this->min_angle_*180.0f/M_PI);
-	ROS_INFO("ProximitySector maximum angle: %f [deg]", this->max_angle_*180.0f/M_PI);
-	ROS_INFO("ProximitySector number of sectors: %d", this->nsectors_);
+	ROS_INFO("CostMapToProximitySector frame_id: %s", this->frame_id_.c_str());
+	ROS_INFO("CostMapToProximitySector subscribed topic: %s", this->stopic_.c_str());
+	ROS_INFO("CostMapToProximitySector advertised topic: %s", this->ptopic_.c_str());
+	ROS_INFO("CostMapToProximitySector threshold: %f", this->threshold_);
+	ROS_INFO("CostMapToProximitySector minimum angle: %f [deg]", this->min_angle_*180.0f/M_PI);
+	ROS_INFO("CostMapToProximitySector maximum angle: %f [deg]", this->max_angle_*180.0f/M_PI);
+	ROS_INFO("CostMapToProximitySector number of sectors: %d", this->nsectors_);
 	
 	// Initialize sector vector
     this->init_sectors();
@@ -48,29 +48,29 @@ bool CostMapToProximitySector::configure(void) {
 	return true;
 }
 
-void CostMapToProximitySector::on_dynamic_reconfiguration(cnbiros_shared_navigation::ProximitySectorConfig &config, uint32_t level) {
+void CostMapToProximitySector::on_dynamic_reconfiguration(cnbiros_shared_navigation::CostMapSectorConfig &config, uint32_t level) {
 
 
 
-	if(std::fabs(config.param_threshold - this->threshold_) > 0.00001f) {
-		this->threshold_ = config.param_threshold;
+	if(std::fabs(config.threshold - this->threshold_) > 0.00001f) {
+		this->threshold_ = config.threshold;
 		ROS_WARN("Updated costmap threshold to %f", this->threshold_);
 	}
 	
-	if(std::fabs(config.param_min_angle - this->min_angle_) > 0.00001f) {
-		this->min_angle_ = config.param_min_angle;
+	if(std::fabs(config.min_angle - this->min_angle_) > 0.00001f) {
+		this->min_angle_ = config.min_angle;
 		this->init_sectors();
 		ROS_WARN("Updated minimum sector angle to %f [deg]", this->min_angle_*180.0f/M_PI);
 	}
 	
-	if(std::fabs(config.param_max_angle - this->max_angle_) > 0.00001f) {
-		this->max_angle_ = config.param_max_angle;
+	if(std::fabs(config.max_angle - this->max_angle_) > 0.00001f) {
+		this->max_angle_ = config.max_angle;
 		this->init_sectors();
 		ROS_WARN("Updated maximum sector angle to %f [deg]", this->max_angle_*180.0f/M_PI);
 	}
 	
-	if(std::fabs(config.param_num_sectors - this->nsectors_) > 0.00001f) {
-		this->nsectors_ = config.param_num_sectors;
+	if(std::fabs(config.num_sectors - this->nsectors_) > 0.00001f) {
+		this->nsectors_ = config.num_sectors;
 		this->init_sectors();
 		ROS_WARN("Updated number of sector to %d", this->nsectors_);
 	}

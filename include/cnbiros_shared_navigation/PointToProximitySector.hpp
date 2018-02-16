@@ -1,5 +1,5 @@
-#ifndef CNBIROS_SHAREDNAVIGATION_COSTMAPTOPROXIMITYSECTOR_HPP
-#define CNBIROS_SHAREDNAVIGATION_COSTMAPTOPROXIMITYSECTOR_HPP
+#ifndef CNBIROS_SHAREDNAVIGATION_POINTTOPROXIMITYSECTOR_HPP
+#define CNBIROS_SHAREDNAVIGATION_POINTTOPROXIMITYSECTOR_HPP
 
 // System includes
 #include <cmath>
@@ -7,25 +7,22 @@
 
 // ROS includes
 #include <ros/ros.h>
-#include <nav_msgs/OccupancyGrid.h>
 #include <geometry_msgs/PointStamped.h>
 #include <tf/transform_listener.h>
-#include <grid_map_ros/grid_map_ros.hpp>
-#include <costmap_2d/cost_values.h>
 #include <dynamic_reconfigure/server.h>
 
 // Package includes
 #include "cnbiros_shared_navigation/ProximitySector.h"
-#include "cnbiros_shared_navigation/CostMapSectorConfig.h"
+#include "cnbiros_shared_navigation/PointSectorConfig.h"
 
 namespace cnbiros {
     namespace navigation {
 
-class CostMapToProximitySector {
+class PointToProximitySector {
 
     public:
-		CostMapToProximitySector(void);
-		virtual ~CostMapToProximitySector(void);
+		PointToProximitySector(void);
+		virtual ~PointToProximitySector(void);
 		
 		bool configure(void);
 
@@ -37,8 +34,8 @@ class CostMapToProximitySector {
 		void debug_dump_sectors(void);
     
 	private:
-		void on_received_costmap(const nav_msgs::OccupancyGrid& msgin);
-		void on_dynamic_reconfiguration(cnbiros_shared_navigation::CostMapSectorConfig &config, 
+		void on_received_point(const geometry_msgs::PointStamped& msgin);
+		void on_dynamic_reconfiguration(cnbiros_shared_navigation::PointSectorConfig &config, 
 										uint32_t level);
 
     protected:
@@ -52,11 +49,10 @@ class CostMapToProximitySector {
 
 		tf::TransformListener	listener_;
 		
-		dynamic_reconfigure::Server<cnbiros_shared_navigation::CostMapSectorConfig> cfgserver_;
-		dynamic_reconfigure::Server<cnbiros_shared_navigation::CostMapSectorConfig>::CallbackType f_;
+		dynamic_reconfigure::Server<cnbiros_shared_navigation::PointSectorConfig> cfgserver_;
+		dynamic_reconfigure::Server<cnbiros_shared_navigation::PointSectorConfig>::CallbackType f_;
 
 		std::string frame_id_;
-		float threshold_;
 		float min_angle_;
 		float max_angle_;
 		float step_;
