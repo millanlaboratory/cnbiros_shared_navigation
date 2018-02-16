@@ -29,14 +29,21 @@ class ProximitySector {
 
 		void SetFrameId(std::string frameid);
 		void SetResolution(int nsectors);
-		void SetRange(float min_angle, float max_angle);
+		void SetMinAngle(float min_angle);
+		void SetMaxAngle(float max_angle);
+
+		std::string GetFrameId(void);
+		float GetMinAngle(void);
+		float GetMaxAngle(void);
+		int	  GetResolution(void);
 
 		float GetAngle(const  ProximitySectorIt& it);
 		float GetRadius(const ProximitySectorIt& it);
-		void SetByPolar(float angle, float radius);
-		void SetByCartesian(float x, float y);
-		void Reset(void);
-		void Dump(void);
+		void  SetByPolar(float angle, float radius);
+		void  SetByCartesian(float x, float y);
+
+		void  Reset(void);
+		void  Dump(void);
 
 		bool FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg, float threshold);
 		bool FromPoint(const geometry_msgs::PointStamped& msg);

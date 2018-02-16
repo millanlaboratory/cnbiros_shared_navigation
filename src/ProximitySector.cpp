@@ -7,13 +7,13 @@ namespace cnbiros {
     namespace navigation {
 
 ProximitySector::ProximitySector(int nsectors, float minangle, 
-								 float maxangle, std::string frameid) {
+								 float maxangle, std::string frameid) : listener_(ros::Duration(10)) {
 
 	// Store sectors parameters
-	this->nsectors_	 = nsectors;
-	this->min_angle_ = minangle;
-	this->max_angle_ = maxangle;
-	this->frame_id_  = frameid;
+	this->SetResolution(nsectors);
+	this->SetMinAngle(minangle);
+	this->SetMaxAngle(maxangle);
+	this->SetFrameId(frameid);
 
 	// Initialize the inner vector
 	this->init_sectors();
@@ -30,10 +30,18 @@ void ProximitySector::SetResolution(int nsectors) {
 	this->init_sectors();
 }
 
-void ProximitySector::SetRange(float minangle, float maxangle) {
+void ProximitySector::SetMinAngle(float minangle) {
 
 	// Store sector parameters
 	this->min_angle_ = minangle;
+	
+	// Initialize the inner vector
+	this->init_sectors();
+}
+
+void ProximitySector::SetMaxAngle(float maxangle) {
+
+	// Store sector parameters
 	this->max_angle_ = maxangle;
 	
 	// Initialize the inner vector
@@ -44,6 +52,22 @@ void ProximitySector::SetFrameId(std::string frameid) {
 	
 	// Store sector parameters
 	this->frame_id_ = frameid;
+}
+
+std::string ProximitySector::GetFrameId(void) {
+	return this->frame_id_;
+}
+
+float ProximitySector::GetMinAngle(void) {
+	return this->min_angle_;
+}
+
+float ProximitySector::GetMaxAngle(void) {
+	return this->max_angle_;
+}
+
+float ProximitySector::GetResolution(void) {
+	return this->nsectors_;
 }
 
 void ProximitySector::Reset(void) {
