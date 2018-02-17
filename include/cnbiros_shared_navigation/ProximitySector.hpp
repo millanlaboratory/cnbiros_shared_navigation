@@ -88,25 +88,25 @@ class ProximitySector {
 		 * Get the frame of the map.
 		 * @return The frame name of the map
 		 */
-		std::string GetFrameId(void);
+		std::string GetFrameId(void) const;
 
 		/*!
 		 * Get the minimum angle of the map.
 		 * @return The minimum angle of the map
 		 */
-		float GetMinAngle(void);
+		float GetMinAngle(void) const;
 
 		/*!
 		 * Get the maximum angle of the map.
 		 * @return The maximum angle of the map
 		 */
-		float GetMaxAngle(void);
+		float GetMaxAngle(void) const;
 
 		/*!
 		 * Get the resolution of the map.
 		 * @return The resolution of the map in number of sectors
 		 */
-		int	  GetResolution(void);
+		int	  GetResolution(void) const;
 
 		/*!
 		 * Set the values of the sector maps. The current values are cleared.
@@ -120,7 +120,7 @@ class ProximitySector {
 		 * Get the current values of the map as std::vector
 		 * @return The current values of the map
 		 */
-		std::vector<float> GetValues(void);
+		std::vector<float> GetValues(void) const;
 
 		/*!
 		 * Get the related angle of the sector identified by a given
@@ -136,14 +136,14 @@ class ProximitySector {
 		 * @param it Sector iterator
 		 * @return The value of the sector associated to the iterator position
 		 */
-		float GetRadius(const ProximitySectorIt& it);
+		float GetRadius(const ProximitySectorIt& it) const;
 
 		/*!
 		 * Get the value of the sector map at a given angle.
 		 * @param angle	The given angle
 		 * @return The value of the map at the requested angle
 		 */
-		float At(float angle);
+		float At(float angle) const;
 
 		/*!
 		 * Set a value in the sector map by polar coordinates (if within the

@@ -59,19 +59,19 @@ void ProximitySector::SetFrameId(std::string frameid) {
 	this->frame_id_ = frameid;
 }
 
-std::string ProximitySector::GetFrameId(void) {
+std::string ProximitySector::GetFrameId(void) const {
 	return this->frame_id_;
 }
 
-float ProximitySector::GetMinAngle(void) {
+float ProximitySector::GetMinAngle(void) const {
 	return this->min_angle_;
 }
 
-float ProximitySector::GetMaxAngle(void) {
+float ProximitySector::GetMaxAngle(void) const {
 	return this->max_angle_;
 }
 
-int ProximitySector::GetResolution(void) {
+int ProximitySector::GetResolution(void) const {
 	return this->nsectors_;
 }
 
@@ -87,7 +87,7 @@ bool ProximitySector::SetValues(const std::vector<float>& values) {
 	return true;
 }
 
-std::vector<float> ProximitySector::GetValues(void) {
+std::vector<float> ProximitySector::GetValues(void) const {
 	return this->sectors_;
 }
 
@@ -115,7 +115,7 @@ void ProximitySector::Dump(void) {
 	this->dump_sectors();
 }
 
-float ProximitySector::GetRadius(const ProximitySectorIt& it) {
+float ProximitySector::GetRadius(const ProximitySectorIt& it) const {
 	return (*it);
 }
 
@@ -125,7 +125,7 @@ float ProximitySector::GetAngle(const ProximitySectorIt& it) {
 	return this->min_angle_ + this->step_*(index + 0.5);
 }
 
-float ProximitySector::At(float angle) {
+float ProximitySector::At(float angle) const {
 
 	// TO DO: Add exception if out of range
 
