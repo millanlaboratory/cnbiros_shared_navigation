@@ -125,6 +125,21 @@ float ProximitySector::GetAngle(const ProximitySectorIt& it) {
 	return this->min_angle_ + this->step_*(index + 0.5);
 }
 
+unsigned int ProximitySector::GetSector(float angle) const {
+
+	unsigned int idsector;
+
+	if(angle == this->min_angle_) {
+		idsector = 0;
+	} else if(angle == this->max_angle_) {
+		idsector = this->nsectors_ - 1;
+	} else {
+		idsector = std::floor((angle - this->min_angle_)/this->step_);
+	}
+
+	return idsector;
+}
+
 float ProximitySector::At(float angle) const {
 
 	// TO DO: Add exception if out of range

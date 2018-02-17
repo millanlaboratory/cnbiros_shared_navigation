@@ -139,6 +139,13 @@ class ProximitySector {
 		float GetRadius(const ProximitySectorIt& it) const;
 
 		/*!
+		 * Get the related sector identified by a given angle
+		 * @param angle The given angle
+		 * @return The id of the sector associated to the given angle
+		 */
+		unsigned int GetSector(float angle) const;
+		
+		/*!
 		 * Get the value of the sector map at a given angle.
 		 * @param angle	The given angle
 		 * @return The value of the map at the requested angle
