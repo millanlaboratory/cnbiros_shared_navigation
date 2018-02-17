@@ -6,7 +6,6 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <geometry_msgs/PointStamped.h>
 #include <grid_map_ros/grid_map_ros.hpp>
-#include <tf/transform_listener.h>
 
 // Package include
 #include "cnbiros_shared_navigation/ProximitySector.hpp"

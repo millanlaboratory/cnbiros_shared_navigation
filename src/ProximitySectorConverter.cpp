@@ -10,12 +10,9 @@ namespace cnbiros {
 bool ProximitySectorConverter::FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg,
 												 ProximitySector& sectors, float threshold) {
 	
-	tf::TransformListener		listener;
 	grid_map::GridMap			map;
     grid_map::Position			position;
     geometry_msgs::PointStamped map_point;
-    geometry_msgs::PointStamped sector_point;
-    float value, radius, angle;
   
 	// Convert Occupancy Grid to GridMap 
 	// (for conveniency, to be changed in the future)
@@ -27,6 +24,9 @@ bool ProximitySectorConverter::FromOccupancyGrid(const nav_msgs::OccupancyGrid& 
     // Resetting current sectors
     sectors.Reset();
 
+	// Updating the frame id with the one of the occupancy grid
+	sectors.SetFrameId(msg.header.frame_id);
+
     for (grid_map::GridMapIterator iterator(map); !iterator.isPastEnd(); ++iterator) {
 
 		const grid_map::Index index(*iterator);
@@ -37,11 +37,8 @@ bool ProximitySectorConverter::FromOccupancyGrid(const nav_msgs::OccupancyGrid& 
 		    continue;
 		}
 
-		// Get current value
-		value = map.at("costmap", index);
-
 		// Check if the value is greater than threshold
-		if(value >= threshold) {
+		if(map.at("costmap", index) >= threshold) {
 
 			// Convert into geometry point
 		    map_point.header.frame_id = msg.header.frame_id;
@@ -49,24 +46,9 @@ bool ProximitySectorConverter::FromOccupancyGrid(const nav_msgs::OccupancyGrid& 
 		    map_point.point.y = position(1);
 		    map_point.point.z = 0.0f;
 		 
-
-			// Apply transformation from msg frame to sector frame if the sector frame
-			// is provided. Otherwise, consider the sector in the same frame of the
-			// incomining message
-			if(sectors.GetFrameId().empty() == true) {
-				sector_point = map_point;
-			} else {
-		    	try {
-					listener.transformPoint(sectors.GetFrameId(), map_point, sector_point);
-		    	} catch(tf::TransformException& ex) {
-					ROS_ERROR("Cannot transform map to base point: %s", ex.what());
-					return false;
-		    	}
-			}	
-			
 			// If in the front, update the sectors.
-			if(sector_point.point.x > 0.0f) {
-				sectors.SetByCartesian(sector_point.point.x, -sector_point.point.y);
+			if(map_point.point.x > 0.0f) {
+				sectors.SetByCartesian(map_point.point.x, -map_point.point.y);
 			}
 		}
     }
@@ -76,28 +58,15 @@ bool ProximitySectorConverter::FromOccupancyGrid(const nav_msgs::OccupancyGrid& 
 
 bool ProximitySectorConverter::FromPoint(const geometry_msgs::PointStamped& msg, ProximitySector& sectors) {
 
-	geometry_msgs::PointStamped	sector_point;
-	tf::TransformListener listener;
-
 	// Reset current sectors
 	sectors.Reset();
+
+	// Updating the frame id with the one of the occupancy grid
+	sectors.SetFrameId(msg.header.frame_id);
 	
-	// Apply transformation from msg frame to sector frame if the sector frame
-	// is provided. Otherwise, consider the sector in the same frame of the
-	// incomining message
-	if(sectors.GetFrameId().empty() == true) {
-		sector_point = msg;
-	} else {
-		try {
-			listener.transformPoint(sectors.GetFrameId(), msg, sector_point);
-		} catch(tf::TransformException& ex) {
-			ROS_ERROR("Cannot transform point frame to sector frame: %s", ex.what());
-			return false;
-		}
-	}
 	// If in the front, update the sectors.
-	if(sector_point.point.x > 0.0f) {
-		sectors.SetByCartesian(sector_point.point.x, -sector_point.point.y);
+	if(msg.point.x > 0.0f) {
+		sectors.SetByCartesian(msg.point.x, -msg.point.y);
 	}
 
 	return true;
