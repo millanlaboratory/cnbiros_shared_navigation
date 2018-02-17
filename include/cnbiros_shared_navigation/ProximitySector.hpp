@@ -6,14 +6,8 @@
 #include <limits>
 
 // ROS includes
-#include <nav_msgs/OccupancyGrid.h>
-#include <geometry_msgs/PointStamped.h>
-#include <tf/transform_listener.h>
-#include <grid_map_ros/grid_map_ros.hpp>
-#include <costmap_2d/cost_values.h>
+#include <ros/ros.h>
 
-// Package include
-#include "cnbiros_shared_navigation/ProximitySectorMsg.h"
 
 namespace cnbiros {
     namespace navigation {
@@ -24,8 +18,21 @@ typedef std::vector<float>::const_iterator ProximitySectorConstIt;
 class ProximitySector {
 
 	public:
+		// Constructor
 		ProximitySector(int nsectors, float minangle, float maxangle, std::string frameid);
+
+		// Empty constructor 
+		// (default values: 3, -M_PI/2.0f, M_PI/2.0f, "base_link")
+		ProximitySector(void);
+
+		// Destructor
 		virtual ~ProximitySector(void);
+
+		// Default copy assign and constructors
+		ProximitySector(const ProximitySector&) = default;
+		ProximitySector& operator=(const ProximitySector&) = default;
+		ProximitySector(ProximitySector&&) = default;
+		ProximitySector& operator=(ProximitySector&&) = default;
 
 		void SetFrameId(std::string frameid);
 		void SetResolution(int nsectors);
@@ -37,6 +44,9 @@ class ProximitySector {
 		float GetMaxAngle(void);
 		int	  GetResolution(void);
 
+		bool SetValues(const std::vector<float>& values);
+		std::vector<float> GetValues(void);
+
 		float GetAngle(const  ProximitySectorIt& it);
 		float GetRadius(const ProximitySectorIt& it);
 		bool  SetByPolar(float angle, float radius);
@@ -44,13 +54,7 @@ class ProximitySector {
 
 		void  Reset(void);
 		void  Dump(void);
-
-		bool FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg, float threshold);
-		bool FromPoint(const geometry_msgs::PointStamped& msg);
-		bool FromMessage(const cnbiros_shared_navigation::ProximitySectorMsg& msg);
-
-		cnbiros_shared_navigation::ProximitySectorMsg ToMessage(void);
-
+		
 	protected:
 		void init_sectors(void);
 		void reset_sectors(void);
@@ -64,9 +68,6 @@ class ProximitySector {
 		ProximitySectorIt		End(void);
 		ProximitySectorConstIt	Begin(void) const;
 		ProximitySectorConstIt	End(void) const;
-
-	protected:
-		tf::TransformListener	listener_;
 
 	private:
 		std::string				frame_id_;

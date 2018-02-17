@@ -7,7 +7,7 @@ namespace cnbiros {
     namespace navigation {
 
 ProximitySector::ProximitySector(int nsectors, float minangle, 
-								 float maxangle, std::string frameid) : listener_(ros::Duration(10)) {
+								 float maxangle, std::string frameid) {
 
 	// Store sectors parameters
 	this->SetResolution(nsectors);
@@ -18,6 +18,11 @@ ProximitySector::ProximitySector(int nsectors, float minangle,
 	// Initialize the inner vector
 	this->init_sectors();
 }
+
+ProximitySector::ProximitySector(void) {
+	ProximitySector(1, -M_PI/2.0f, M_PI/2.0f, "base_link");
+};
+
 
 ProximitySector::~ProximitySector(void) {}
 
@@ -76,6 +81,15 @@ void ProximitySector::Reset(void) {
 	this->reset_sectors();
 }
 
+bool ProximitySector::SetValues(const std::vector<float>& values) {
+	this->sectors_ = values;
+	return true;
+}
+
+std::vector<float> ProximitySector::GetValues(void) {
+	return this->sectors_;
+}
+
 bool ProximitySector::SetByPolar(float angle, float radius) {
 
 	// Set sectors
@@ -109,123 +123,6 @@ float ProximitySector::GetAngle(const ProximitySectorIt& it) {
 	auto index = std::distance(this->sectors_.begin(), it);
 	return this->min_angle_ + this->step_*(index + 0.5);
 }
-
-bool ProximitySector::FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg, float threshold) {
-	
-	grid_map::GridMap			map;
-    grid_map::Position			position;
-    geometry_msgs::PointStamped map_point;
-    geometry_msgs::PointStamped base_point;
-    float value, radius, angle;
-	bool retval = true;
-  
-	// Convert Occupancy Grid to GridMap (for conveniency)
-    if(grid_map::GridMapRosConverter::fromOccupancyGrid(msg, "costmap", map) == false) {
-		ROS_ERROR("Cannot convert occupancy grid to grid map");
-		return false;
-    }
-
-    // Resetting current sectors
-    this->Reset();
-
-    for (grid_map::GridMapIterator iterator(map); !iterator.isPastEnd(); ++iterator) {
-
-		const grid_map::Index index(*iterator);
-
-		// Convert Index to Position
-		if(map.getPosition(index, position) == false) {
-		    ROS_ERROR("Cannot get position in grid map. Skipping..");
-		    continue;
-		}
-
-		// Get current value
-		value = map.at("costmap", index);
-
-		// Check if the value is greater than threshold
-		if(value >= threshold) {
-
-			// Convert into geometry point
-		    map_point.header.frame_id = msg.header.frame_id;
-		    map_point.point.x = position(0);
-		    map_point.point.y = position(1);
-		    map_point.point.z = 0.0f;
-		   
-			// Apply transformation from map frame to base
-		    try {
-				this->listener_.transformPoint(this->frame_id_, map_point, base_point);
-			
-				// If in the front, update the sectors.
-				if(base_point.point.x > 0.0f) {
-					this->SetByCartesian(base_point.point.x, -base_point.point.y);
-				}
-		    } catch(tf::TransformException& ex) {
-				ROS_ERROR("Cannot transform map to base point: %s", ex.what());
-				retval = false;
-		    }
-		}
-    }
-
-	return retval;
-}
-
-
-bool ProximitySector::FromPoint(const geometry_msgs::PointStamped& msg) {
-
-	geometry_msgs::PointStamped	sector_point;
-	bool retval = true;
-	
-	// Reset current sectors
-	this->Reset();
-	
-	// Apply transformation from msg frame to sector frame
-	try {
-		this->listener_.transformPoint(this->frame_id_, msg, sector_point);
-	
-		// If in the front, update the sectors.
-		if(sector_point.point.x > 0.0f) {
-			this->SetByCartesian(sector_point.point.x, -sector_point.point.y);
-		}
-	} catch(tf::TransformException& ex) {
-		ROS_ERROR("Cannot transform point frame to sector frame: %s", ex.what());
-		retval = false;
-	}
-
-	return retval;
-}
-
-bool ProximitySector::FromMessage(const cnbiros_shared_navigation::ProximitySectorMsg& msg) {
-
-	// Reset current sectors
-	this->Reset();
-
-	// Re-Initialize sectors according to the incoming message
-	this->frame_id_  = msg.header.frame_id;
-	this->nsectors_  = msg.nsectors;
-	this->min_angle_ = msg.min_angle;
-	this->max_angle_ = msg.max_angle;
-	this->init_sectors();
-
-	// Copy the sector values
-	this->sectors_ = msg.values;
-
-	return true;
-}
-
-cnbiros_shared_navigation::ProximitySectorMsg ProximitySector::ToMessage(void) {
-
-	cnbiros_shared_navigation::ProximitySectorMsg msg;
-
-    msg.header.frame_id	= this->frame_id_;
-    msg.header.stamp	= ros::Time::now();
-    msg.values			= this->sectors_;
-    msg.min_angle		= this->min_angle_;
-    msg.max_angle		= this->max_angle_;
-    msg.nsectors		= this->nsectors_;
-    msg.step			= this->step_;
-
-	return msg;
-}
-
 
 ///******** Private methods to handle sector vector ********///
 void ProximitySector::init_sectors(void) {
