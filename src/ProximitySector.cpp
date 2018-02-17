@@ -82,6 +82,7 @@ void ProximitySector::Reset(void) {
 }
 
 bool ProximitySector::SetValues(const std::vector<float>& values) {
+	this->SetResolution(values.size());
 	this->sectors_ = values;
 	return true;
 }
@@ -123,6 +124,24 @@ float ProximitySector::GetAngle(const ProximitySectorIt& it) {
 	auto index = std::distance(this->sectors_.begin(), it);
 	return this->min_angle_ + this->step_*(index + 0.5);
 }
+
+float ProximitySector::At(float angle) {
+
+	// TO DO: Add exception if out of range
+
+    int idsector;
+	float cvalue = std::numeric_limits<float>::infinity();
+
+    // Determine the current sector, given the angle
+    idsector = std::floor(angle/this->step_);
+	
+	if((idsector >= 0) && (idsector < this->sectors_.size())) {
+		cvalue = this->sectors_.at(idsector);
+	}
+
+	return cvalue;
+}
+
 
 ///******** Private methods to handle sector vector ********///
 void ProximitySector::init_sectors(void) {
