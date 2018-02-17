@@ -51,6 +51,7 @@ catkin_package(
 #			src/DynamicGoals.cpp)
 add_library(cnbiros_shared_navigation 
 			src/ProximitySector.cpp
+			src/ProximitySectorConverter.cpp
 			src/CostMapToProximitySector.cpp
 			src/PointToProximitySector.cpp)
 add_dependencies(cnbiros_shared_navigation cnbiros_shared_navigation_generate_messages_cpp)
