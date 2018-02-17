@@ -90,7 +90,7 @@ bool ProximitySectorConverter::FromMessage(const cnbiros_shared_navigation::Prox
 	return true;
 }
 
-bool ProximitySectorConverter::ToMessage(ProximitySector& sectors, 
+bool ProximitySectorConverter::ToMessage(const ProximitySector& sectors, 
 							cnbiros_shared_navigation::ProximitySectorMsg& msg) {
 
     msg.header.frame_id	= sectors.GetFrameId();
