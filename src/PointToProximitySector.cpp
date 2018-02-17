@@ -20,9 +20,7 @@ PointToProximitySector::PointToProximitySector(void) : private_nh_("~") {
 	this->cfgserver_.setCallback(this->f_);
 }
 
-PointToProximitySector::~PointToProximitySector(void) {
-	delete this->sector_;
-}
+PointToProximitySector::~PointToProximitySector(void) {}
 
 bool PointToProximitySector::configure(void) {
 
@@ -47,7 +45,10 @@ bool PointToProximitySector::configure(void) {
 	ROS_INFO("PointToProximitySector number of sectors: %d", nsectors);
 	
 	// Instanciate sector vector
-	this->sector_ = new ProximitySector(nsectors, minangle, maxangle, frameid);
+	this->sector_.SetResolution(nsectors);
+	this->sector_.SetMinAngle(minangle); 
+	this->sector_.SetMaxAngle(maxangle);
+	this->sector_.SetFrameId(frameid);
 
 	return true;
 }
@@ -55,18 +56,18 @@ bool PointToProximitySector::configure(void) {
 void PointToProximitySector::on_dynamic_reconfiguration(cnbiros_shared_navigation::PointSectorConfig &config, uint32_t level) {
 
 	
-	if(std::fabs(config.min_angle - this->sector_->GetMinAngle()) > 0.00001f) {
-		this->sector_->SetMinAngle(config.min_angle);
+	if(std::fabs(config.min_angle - this->sector_.GetMinAngle()) > 0.00001f) {
+		this->sector_.SetMinAngle(config.min_angle);
 		ROS_WARN("Updated minimum sector angle to %f [deg]", config.min_angle*180.0f/M_PI);
 	}
 	
-	if(std::fabs(config.max_angle - this->sector_->GetMaxAngle()) > 0.00001f) {
-		this->sector_->SetMaxAngle(config.max_angle);
+	if(std::fabs(config.max_angle - this->sector_.GetMaxAngle()) > 0.00001f) {
+		this->sector_.SetMaxAngle(config.max_angle);
 		ROS_WARN("Updated maximum sector angle to %f [deg]", config.max_angle*180.0f/M_PI);
 	}
 	
-	if(std::fabs(config.num_sectors - this->sector_->GetResolution()) > 0.00001f) {
-		this->sector_->SetResolution(config.num_sectors);
+	if(std::fabs(config.num_sectors - this->sector_.GetResolution()) > 0.00001f) {
+		this->sector_.SetResolution(config.num_sectors);
 		ROS_WARN("Updated number of sector to %d", config.num_sectors);
 	}
 }
@@ -79,15 +80,15 @@ void PointToProximitySector::on_received_point(const geometry_msgs::PointStamped
 	cnbiros_shared_navigation::ProximitySectorMsg msg_out;
 
 	// Update the sector with point message
-	if(this->sector_->FromPoint(msg_in) == false) {
+	if(ProximitySectorConverter::FromPoint(msg_in, this->sector_) == false) {
 		ROS_ERROR("Cannot importing the incoming message into ProximitySector");
 	} else {
 
 		// Debug
-		this->sector_->Dump();
+		this->sector_.Dump();
 
 		// Convert sector to message
-		msg_out = this->sector_->ToMessage();
+		ProximitySectorConverter::ToMessage(this->sector_, msg_out);
 
 		// Publish the message
 		this->pub_.publish(msg_out);

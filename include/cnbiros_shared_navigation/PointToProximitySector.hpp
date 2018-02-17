@@ -8,11 +8,11 @@
 // ROS includes
 #include <ros/ros.h>
 #include <geometry_msgs/PointStamped.h>
-#include <tf/transform_listener.h>
 #include <dynamic_reconfigure/server.h>
 
 // Package includes
 #include "cnbiros_shared_navigation/ProximitySector.hpp"
+#include "cnbiros_shared_navigation/ProximitySectorConverter.hpp"
 #include "cnbiros_shared_navigation/PointSectorConfig.h"
 
 namespace cnbiros {
@@ -24,7 +24,7 @@ class PointToProximitySector {
 		PointToProximitySector(void);
 		virtual ~PointToProximitySector(void);
 		
-		bool configure(void);
+		virtual bool configure(void);
     
 	private:
 		void on_received_point(const geometry_msgs::PointStamped& msgin);
@@ -32,8 +32,8 @@ class PointToProximitySector {
 										uint32_t level);
 
     protected:
-		ros::NodeHandle			nh_;
-  		ros::NodeHandle			private_nh_;
+		ros::NodeHandle	nh_;
+  		ros::NodeHandle	private_nh_;
 		
 		ros::Subscriber	sub_;
 		ros::Publisher	pub_;
@@ -43,7 +43,7 @@ class PointToProximitySector {
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::PointSectorConfig> cfgserver_;
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::PointSectorConfig>::CallbackType f_;
 
-		ProximitySector*	sector_;
+		ProximitySector	sector_;
 };
 
 
