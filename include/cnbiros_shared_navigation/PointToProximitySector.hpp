@@ -1,10 +1,6 @@
 #ifndef CNBIROS_SHAREDNAVIGATION_POINTTOPROXIMITYSECTOR_HPP
 #define CNBIROS_SHAREDNAVIGATION_POINTTOPROXIMITYSECTOR_HPP
 
-// System includes
-#include <cmath>
-#include <limits>
-
 // ROS includes
 #include <ros/ros.h>
 #include <geometry_msgs/PointStamped.h>
