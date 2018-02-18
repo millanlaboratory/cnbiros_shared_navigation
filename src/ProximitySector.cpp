@@ -75,6 +75,14 @@ int ProximitySector::GetResolution(void) const {
 	return this->nsectors_;
 }
 
+float ProximitySector::GetStep(void) const {
+	return this->step_;
+}
+
+bool ProximitySector::IsEmpty(void) const {
+	return this->sectors_.empty();
+}
+
 void ProximitySector::Reset(void) {
 
 	// Reset sectors
@@ -115,13 +123,13 @@ void ProximitySector::Dump(void) {
 	this->dump_sectors();
 }
 
-float ProximitySector::GetRadius(const ProximitySectorIt& it) const {
+float ProximitySector::GetRadius(ProximitySectorConstIt& it) const {
 	return (*it);
 }
 
-float ProximitySector::GetAngle(const ProximitySectorIt& it) {
-	
-	auto index = std::distance(this->sectors_.begin(), it);
+float ProximitySector::GetAngle(ProximitySectorConstIt& it) {
+
+	unsigned int index = this->sectors_.begin() - it;
 	return this->min_angle_ + this->step_*(index + 0.5);
 }
 
@@ -157,6 +165,21 @@ float ProximitySector::At(float angle) const {
 	return cvalue;
 }
 
+ProximitySectorIt ProximitySector::Begin(void) {
+	return this->sectors_.begin();
+}
+
+ProximitySectorIt ProximitySector::End(void) {
+	return this->sectors_.end();
+}
+
+ProximitySectorConstIt ProximitySector::Begin(void) const {
+	return this->sectors_.begin();
+}
+
+ProximitySectorConstIt ProximitySector::End(void) const {
+	return this->sectors_.end();
+}
 
 ///******** Private methods to handle sector vector ********///
 void ProximitySector::init_sectors(void) {

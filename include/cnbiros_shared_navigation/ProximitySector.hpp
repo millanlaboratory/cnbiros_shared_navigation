@@ -12,6 +12,10 @@
 namespace cnbiros {
     namespace navigation {
 
+// Type traits for the iterators
+typedef std::vector<float>::iterator ProximitySectorIt;
+typedef std::vector<float>::const_iterator ProximitySectorConstIt;
+
 /*!
  *	ProximitySector is a map in polar coordinates holding float values. The map
  *	is defined by sectors within a given angular range and with a given angular
@@ -23,9 +27,6 @@ namespace cnbiros {
 class ProximitySector {
 
 	public:
-		// Type traits for the iterators
-		typedef std::vector<float>::iterator ProximitySectorIt;
-		typedef std::vector<float>::const_iterator ProximitySectorConstIt;
 		
 		/*!
 		 * Constructor.
@@ -109,6 +110,12 @@ class ProximitySector {
 		int	  GetResolution(void) const;
 
 		/*!
+		 * Get the sector step
+		 * @return The angular step of the sectors
+		 */
+		float GetStep(void) const;
+		
+		/*!
 		 * Set the values of the sector maps. The current values are cleared.
 		 * Other maps characteristics are not set (e.g., the minimum and maximum
 		 * angles).
@@ -128,7 +135,7 @@ class ProximitySector {
 		 * @param it Sector iterator
 		 * @return The angle associated to the iterator position
 		 */
-		float GetAngle(const  ProximitySectorIt& it);
+		float GetAngle(ProximitySectorConstIt& it);
 
 		/*!
 		 * Get the related value of the sector identified by a given
@@ -136,7 +143,7 @@ class ProximitySector {
 		 * @param it Sector iterator
 		 * @return The value of the sector associated to the iterator position
 		 */
-		float GetRadius(const ProximitySectorIt& it) const;
+		float GetRadius(ProximitySectorConstIt& it) const;
 
 		/*!
 		 * Get the related sector identified by a given angle
@@ -169,6 +176,12 @@ class ProximitySector {
 		 * @return True if the value has been set.
 		 */
 		bool  SetByCartesian(float x, float y);
+
+		/*!
+		 * Return if the vector is empty
+		 * @return True if succesful, false otherwise
+		 */
+		bool  IsEmpty(void) const;
 
 		/*!
 		 * Reset all the value in the sector map. The other map parameters are
