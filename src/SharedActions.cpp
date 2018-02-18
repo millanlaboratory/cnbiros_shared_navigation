@@ -1,12 +1,12 @@
-#ifndef CNBIROS_NAVIGATION_DYNAMICGOALS_CPP
-#define CNBIROS_NAVIGATION_DYNAMICGOALS_CPP
+#ifndef CNBIROS_SHAREDNAVIGATION_SHAREDACTIONS_CPP
+#define CNBIROS_SHAREDNAVIGATION_SHAREDACTIONS_CPP
 
-#include "cnbiros_shared_navigation/DynamicGoals.hpp"
+#include "cnbiros_shared_navigation/SharedActions.hpp"
 
 namespace cnbiros {
     namespace navigation {
 
-DynamicGoals::DynamicGoals(void) : private_nh_("~") {
+SharedActions::SharedActions(void) : private_nh_("~") {
 
     this->actioncln_ = nullptr;
     
@@ -14,14 +14,14 @@ DynamicGoals::DynamicGoals(void) : private_nh_("~") {
 	this->configure();
 
 	// Initialize services
-	this->srv_set_parameters_ = this->private_nh_.advertiseService("set_parameters", 
-												  &DynamicGoals::on_set_parameters, this);
+	//this->srv_set_parameters_ = this->private_nh_.advertiseService("set_parameters", 
+	//											  &SharedActions::on_set_parameters, this);
 
 	this->srv_clear_costmap_ = this->nh_.serviceClient<std_srvs::Empty>("/move_base/clear_costmaps");
 
 	// Initialize subscribers
-    this->subobstacles_ = this->nh_.subscribe(this->obstacle_topic_, 50, &DynamicGoals::callback, this);
-    this->subtargets_   = this->nh_.subscribe(this->target_topic_, 50, &DynamicGoals::user_callback, this);
+    this->subrep_ = this->nh_.subscribe(this->reptopic_, 50, &SharedActions::on_receive_repellors, this);
+    this->subatt_ = this->nh_.subscribe(this->atttopic_, 50, &SharedActions::on_receive_attractors, this);
 
 	// Initialize move base client
     this->actioncln_ = new MoveBaseClient(this->actionsrv_, true);
@@ -33,32 +33,32 @@ DynamicGoals::DynamicGoals(void) : private_nh_("~") {
 	this->init_update_rate(this->update_rate_);
 
 	// Dynamic reconfiguration
-	this->f = boost::bind(&DynamicGoals::reconfigure_callback, this, _1, _2);
+	this->f = boost::bind(&SharedActions::reconfigure_callback, this, _1, _2);
 	this->cfgserver.setCallback(f);
 
 }
 
-DynamicGoals::~DynamicGoals(void) {
+SharedActions::~SharedActions(void) {
     if(this->actioncln_ == nullptr)
 	delete this->actioncln_;
 }
 
-void DynamicGoals::reconfigure_callback(cnbiros_shared_navigation::DynamicGoalsConfig &config, 
+void SharedActions::reconfigure_callback(cnbiros_shared_navigation::SharedActionsConfig &config, 
 										uint32_t level) {
 
-	if(std::fabs(config.param_obstacle_strength - this->obstacle_strength_) > EPSILON) {
-		this->obstacle_strength_ = config.param_obstacle_strength;
-		ROS_WARN("Updated obstacle strength to %f", this->obstacle_strength_);
+	if(std::fabs(config.param_repellors_strength - this->repellors_strength_) > EPSILON) {
+		this->repellors_strength_ = config.param_repellors_strength;
+		ROS_WARN("Updated repellors strength to %f", this->repellors_strength_);
 	}
 	
-	if(std::fabs(config.param_obstacle_decay - this->obstacle_decay_) > EPSILON) {
-		this->obstacle_decay_ = config.param_obstacle_decay;
-		ROS_WARN("Updated obstacle decay to %f", this->obstacle_decay_);
+	if(std::fabs(config.param_repellors_decay - this->repellors_decay_) > EPSILON) {
+		this->repellors_decay_ = config.param_repellors_decay;
+		ROS_WARN("Updated repellors decay to %f", this->repellors_decay_);
 	}
 	
-	if(std::fabs(config.param_obstacle_occupancy - this->obstacle_occupancy_) > EPSILON) {
-		this->obstacle_occupancy_ = config.param_obstacle_occupancy;
-		ROS_WARN("Updated obstacle occupancy to %f", this->obstacle_occupancy_);
+	if(std::fabs(config.param_repellors_occupancy - this->repellors_occupancy_) > EPSILON) {
+		this->repellors_occupancy_ = config.param_repellors_occupancy;
+		ROS_WARN("Updated repellors occupancy to %f", this->repellors_occupancy_);
 	}
 	
 	if(std::fabs(config.param_command_timeout - this->command_timeout_) > EPSILON) {
@@ -84,14 +84,14 @@ void DynamicGoals::reconfigure_callback(cnbiros_shared_navigation::DynamicGoalsC
 
 }
 
-bool DynamicGoals::configure(void) {
+bool SharedActions::configure(void) {
 
-	this->obstacle_strength_	= 0.2f;
-	this->obstacle_decay_		= 0.5f;
-	this->obstacle_occupancy_	= 9.5f;
-	this->obstacle_topic_		= "/sectorgrid";
-	this->target_topic_			= "/user";
+	this->reptopic_				= "/sectorgrid";
+	this->atttopic_				= "/user";
 	this->actionsrv_			= "move_base";
+	this->repellors_strength_	= 0.2f;
+	this->repellors_decay_		= 0.5f;
+	this->repellors_occupancy_	= 9.5f;
 	this->frame_id_				= "base_link";
 	this->command_timeout_		= 8.0f;
 	this->max_goal_distance_	= 2.0f;
@@ -100,63 +100,63 @@ bool DynamicGoals::configure(void) {
 
 
 	// Getting parameters
-	this->private_nh_.getParam("obstacles",				this->obstacle_topic_);
-	this->private_nh_.getParam("targets",				this->target_topic_);
+	this->private_nh_.getParam("obstacles",				this->reptopic_);
+	this->private_nh_.getParam("targets",				this->atttopic_);
 	this->private_nh_.getParam("action_server",			this->actionsrv_);
 	this->private_nh_.getParam("frame_id",				this->frame_id_);
-	this->private_nh_.getParam("obstacle_strength",		this->obstacle_strength_);
-	this->private_nh_.getParam("obstacle_decay",		this->obstacle_decay_);
-	this->private_nh_.getParam("obstacle_occupancy",	this->obstacle_occupancy_);
+	this->private_nh_.getParam("repellors_strength",	this->repellors_strength_);
+	this->private_nh_.getParam("repellors_decay",		this->repellors_decay_);
+	this->private_nh_.getParam("repellors_occupancy",	this->repellors_occupancy_);
 	this->private_nh_.getParam("command_timeout",		this->command_timeout_);
-	this->private_nh_.getParam("update_rate",		this->update_rate_);
+	this->private_nh_.getParam("update_rate",			this->update_rate_);
 	
 	this->private_nh_.getParam("max_goal_distance",		this->max_goal_distance_);
 	this->private_nh_.getParam("slope_distance",		this->slope_distance_);
 
-	ROS_INFO("DynamicGoals frame_id:					%s", this->frame_id_.c_str());
-	ROS_INFO("DynamicGoals obstacles topic:				%s", this->obstacle_topic_.c_str());
-	ROS_INFO("DynamicGoals target topic:				%s", this->target_topic_.c_str());
-	ROS_INFO("DynamicGoals action server name:			%s", this->actionsrv_.c_str());
-	ROS_INFO("DynamicGoals obstacles strength:			%f", this->obstacle_strength_);
-	ROS_INFO("DynamicGoals obstacles decay:				%f", this->obstacle_decay_);
-	ROS_INFO("DynamicGoals obstacles occupancy:			%f", this->obstacle_occupancy_);
-	ROS_INFO("DynamicGoals command timeout:				%f", this->command_timeout_);
-	ROS_INFO("DynamicGoals max goal distance:			%f", this->max_goal_distance_);
-	ROS_INFO("DynamicGoals slope distance:				%f", this->slope_distance_);
-	ROS_INFO("DynamicGoals update rate:					%f", this->update_rate_);
+	ROS_INFO("SharedActions frame_id:				%s", this->frame_id_.c_str());
+	ROS_INFO("SharedActions repellors topic:		%s", this->reptopic_.c_str());
+	ROS_INFO("SharedActions attractors topic:		%s", this->atttopic_.c_str());
+	ROS_INFO("SharedActions action server name:		%s", this->actionsrv_.c_str());
+	ROS_INFO("SharedActions repellors strength:		%f", this->repellors_strength_);
+	ROS_INFO("SharedActions repellors decay:		%f", this->repellors_decay_);
+	ROS_INFO("SharedActions repellors occupancy:	%f", this->repellors_occupancy_);
+	ROS_INFO("SharedActions command timeout:		%f", this->command_timeout_);
+	ROS_INFO("SharedActions max goal distance:		%f", this->max_goal_distance_);
+	ROS_INFO("SharedActions slope distance:			%f", this->slope_distance_);
+	ROS_INFO("SharedActions update rate:			%f", this->update_rate_);
 
 	return true;
 }
 
-void DynamicGoals::init_command_timer(float timeout) {
+void SharedActions::init_command_timer(float timeout) {
 
 	this->command_timer_ = this->nh_.createTimer(
 						   ros::Duration(this->command_timeout_), 
-						   &DynamicGoals::on_reset_command_user,
+						   &SharedActions::on_reset_command_user,
 						   this);
 	ROS_INFO("Command timer initialize with %f timeout", this->command_timeout_);
 }
 
 
-void DynamicGoals::init_update_rate(float rate) {
+void SharedActions::init_update_rate(float rate) {
 
 	this->rate_ = new ros::Rate(rate);
 }
 
-void DynamicGoals::change_update_rate(float rate) {
+void SharedActions::change_update_rate(float rate) {
 	delete this->rate_;
 	init_update_rate(rate);
 }
 
-void DynamicGoals::on_reset_command_user(const ros::TimerEvent& event) {
+void SharedActions::on_reset_command_user(const ros::TimerEvent& event) {
 
 	ROS_WARN("User command validity expired");
-	this->user_data_.values.clear();
+	this->attractors_data_.Reset();
 
 	this->command_timer_.stop();
 }
 
-void DynamicGoals::WaitForServer(void) {
+void SharedActions::WaitForServer(void) {
 
     while(!(this->actioncln_->waitForServer(ros::Duration(1.0f)))) {
 		ROS_INFO_THROTTLE(5.0, "Waiting for %s action server to come up", this->actionsrv_.c_str());
@@ -164,7 +164,7 @@ void DynamicGoals::WaitForServer(void) {
     ROS_INFO("%s action server connected", this->actionsrv_.c_str());
 }
 
-void DynamicGoals::Start(void) {
+void SharedActions::Start(void) {
 
 	float w = 0.0f;
 	float r = 1.0f;
@@ -174,7 +174,7 @@ void DynamicGoals::Start(void) {
 	this->SendGoal();
 }
 
-void DynamicGoals::MakeGoal(float radius, float angle) {
+void SharedActions::MakeGoal(float radius, float angle) {
 
     // Make the goal for the given angle and radius
 	this->goal_.target_pose.header.frame_id		= this->frame_id_;
@@ -186,7 +186,7 @@ void DynamicGoals::MakeGoal(float radius, float angle) {
 	ROS_INFO("New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
 }
 
-void DynamicGoals::MakeGoal(void) {
+void SharedActions::MakeGoal(void) {
 
 	float angle;
 	float map_angle;
@@ -194,11 +194,11 @@ void DynamicGoals::MakeGoal(void) {
 	float radius	= 1.0f;
 
 	// Compute orientation for repellors
-	map_angle  = this->compute_orientation(this->sector_data_);
+	map_angle  = this->goal_orientation_repellors(this->repellors_data_);
 	ROS_INFO("Map angle: %f [deg]", map_angle*180.0f/M_PI);
 	
 	// Compute orientation for attractors
-	usr_angle = this->compute_orientation_user(this->user_data_);
+	usr_angle = this->goal_orientation_attractors(this->attractors_data_);
 	ROS_INFO("Usr angle: %f [deg]", usr_angle*180.0f/M_PI);
 	
 	angle = map_angle + usr_angle;
@@ -212,9 +212,8 @@ void DynamicGoals::MakeGoal(void) {
 	//////////////////////////
 
 	// Compute position for computed angle
-	if(this->sector_data_.values.empty() == false) {
-		//radius = this->compute_position_exponential(this->sector_data_, angle);
-		radius = this->compute_position_logistic(this->sector_data_, angle);
+	if(this->repellors_data_.IsEmpty() == false) {
+		radius = this->goal_position_logistic(this->repellors_data_, angle);
 	}
 	
     // Make the goal given the computed angle and radius
@@ -228,7 +227,7 @@ void DynamicGoals::MakeGoal(void) {
 }
 
 
-void DynamicGoals::SendGoal(void) {
+void SharedActions::SendGoal(void) {
 
 	if(this->actioncln_->isServerConnected() == false) {
     	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
@@ -237,7 +236,7 @@ void DynamicGoals::SendGoal(void) {
 	}
 }
 
-void DynamicGoals::CancelServerGoal(void) {
+void SharedActions::CancelServerGoal(void) {
 
 	if(this->actioncln_->isServerConnected() == false) {
     	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
@@ -247,20 +246,20 @@ void DynamicGoals::CancelServerGoal(void) {
 }
 
 
-void DynamicGoals::callback(const cnbiros_shared_navigation::SectorGrid& data) {
+void SharedActions::on_receive_repellors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {
 
-	// Store costmap/sectorgrid data
-    this->sector_data_ = data;
-
-	//this->MakeGoal();
-	//this->CancelServerGoal();
-	//this->SendGoal();
+	// Convert and store repellor data
+	if(ProximitySectorConverter::FromMessage(data, this->repellors_data_) == false) {
+		ROS_ERROR("Cannot convert repellor proximity sector message");
+	}
 }
 
-void DynamicGoals::user_callback(const cnbiros_shared_navigation::SectorGrid& data) {
+void SharedActions::on_receive_attractors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {
 
-	// Store user data
-    this->user_data_ = data;
+	// Convert and store attractor data
+	if(ProximitySectorConverter::FromMessage(data, this->attractors_data_) == false) {
+		ROS_ERROR("Cannot convert attractors proximity sector message");
+	}
 
 	// Update the timer for command timeout
 	this->command_timer_.setPeriod(ros::Duration(this->command_timeout_));
@@ -272,93 +271,62 @@ void DynamicGoals::user_callback(const cnbiros_shared_navigation::SectorGrid& da
 	this->SendGoal();
 }
 
-float DynamicGoals::compute_orientation(const cnbiros_shared_navigation::SectorGrid& data) {
+float SharedActions::goal_orientation_repellors(ProximitySector& sectors) {
 
-    unsigned int i;
-    unsigned int nsectors;
-    float sector_step, sector_min_angle, sector_max_angle;
+	ProximitySectorConstIt it;
+    float sector_step;
     float cradius, cangle, csigma, clambda;
     float hangle = 0.0f;
     float w = 0.0f;
 
-    sector_step	     = data.step;
-    sector_min_angle = data.min_angle;
-    sector_max_angle = data.max_angle;
-    nsectors	     = data.nsectors;
+    sector_step	= sectors.GetStep();
 
-    i = 0;
-    for(auto it=data.values.begin(); it!=data.values.end(); ++it) {
-		i++;
+    for(it=sectors.Begin(); it!=sectors.End(); ++it) {
 
 		if(std::isinf((*it)) == true)
 		    continue;
 
-		cradius = (*it);
-		cangle  = sector_min_angle + sector_step*((i-1) + 0.5f);
-		
-		//ROS_INFO("Obstacle at: %f degree", cangle*180.0f/M_PI);	
-		clambda = this->obstacle_strength_*exp(-(cradius/this->obstacle_decay_));
+		cradius = sectors.GetRadius(it);
+		cangle  = sectors.GetAngle(it);
+
+		clambda = this->repellors_strength_*exp(-(cradius/this->repellors_decay_));
 		csigma  = std::atan(std::tan(sector_step/2.0f) + 
-			           this->obstacle_occupancy_/(this->obstacle_occupancy_ + cradius));
+			           this->repellors_occupancy_/(this->repellors_occupancy_ + cradius));
 		
 		w += clambda*(hangle-cangle)*exp(-(std::pow(hangle - cangle, 2))/(2.0f*pow(csigma, 2)));
-
     }
 
-
     return w;
-
 }
 
-float DynamicGoals::compute_orientation_user(const cnbiros_shared_navigation::SectorGrid& data) {
+float SharedActions::goal_orientation_attractors(ProximitySector& sectors) {
 
-    unsigned int i;
-    unsigned int nsectors;
-    float sector_step, sector_min_angle, sector_max_angle;
-    float cradius, cangle, csigma, clambda;
-    float hangle = 0.0f;
-    float w = 0.0f;
+    float w;
+	ProximitySectorConstIt it;
 
-    sector_step	     = data.step;
-    sector_min_angle = data.min_angle;
-    sector_max_angle = data.max_angle;
-    nsectors	     = data.nsectors;
-
-
-    i = 0;
-    for(auto it=data.values.begin(); it!=data.values.end(); ++it) {
-		i++;
+    for(it=sectors.Begin(); it!=sectors.End(); ++it) {
 
 		if(std::isinf((*it)) == true)
 		    continue;
 
-		cradius = (*it);
-		cangle  = sector_min_angle + sector_step*((i-1) + 0.5f);
-		
-		ROS_INFO("User command at: %f degree", cangle*180.0f/M_PI);	
-		
-		w = -cangle;
+		w  = -sectors.GetAngle(it);
     }
-
     return w;
 }
 
-float DynamicGoals::compute_position_exponential(const cnbiros_shared_navigation::SectorGrid& data, float wescape) {
+float SharedActions::goal_position_exponential(ProximitySector& sectors, float wescape) {
 
-	unsigned int idsector;
 	float cvalue;
 	float tposition;
-
     float a;
+
     float MINDIS = 0.0f;
     float MAXDIS = 6.0f;
     float MAXPOS = 1.0f;
     
     a = MAXPOS/std::pow((MAXDIS-MINDIS), 2);
 
-	
-	idsector = angle2sector(wescape, data.min_angle, data.max_angle, data.step, data.nsectors);
-	cvalue = data.values.at(idsector);
+	cvalue = sectors.At(wescape);
 
     if(cvalue <= MINDIS) {
 		tposition = 0.0f;
@@ -369,12 +337,10 @@ float DynamicGoals::compute_position_exponential(const cnbiros_shared_navigation
     }
 
 	return tposition;
-
 }
 
-float DynamicGoals::compute_position_logistic(const cnbiros_shared_navigation::SectorGrid& data, float wescape) {
+float SharedActions::goal_position_logistic(ProximitySector& sectors, float wescape) {
 
-	unsigned int idsector;
 	float cvalue;
 	float tposition;
 
@@ -384,9 +350,8 @@ float DynamicGoals::compute_position_logistic(const cnbiros_shared_navigation::S
 	float MidPoint = 2.0f;
 	float ShiftX = (1.0f/std::exp(Slope))*((2.0f/MinDg) - 1.0f);
 
-	idsector = angle2sector(wescape, data.min_angle, data.max_angle, data.step, data.nsectors);
-	cvalue = data.values.at(idsector);
-
+	cvalue = sectors.At(wescape);
+	
 	if(std::isinf(cvalue)) {
 		tposition = MaxDg;
 	} else {
@@ -397,7 +362,7 @@ float DynamicGoals::compute_position_logistic(const cnbiros_shared_navigation::S
 
 }
 /*
-float DynamicGoals::compute_position_linear(const cnbiros_shared_navigation::SectorGrid& data, float wescape) {
+float SharedActions::compute_position_linear(const cnbiros_shared_navigation::SectorGrid& data, float wescape) {
 
 	unsigned int idsector;
 	float cvalue;
@@ -428,7 +393,8 @@ float DynamicGoals::compute_position_linear(const cnbiros_shared_navigation::Sec
 
 }
 */
-unsigned int DynamicGoals::angle2sector(float angle, float min_angle, float max_angle, float step_angle, unsigned int nsectors) {
+/*
+unsigned int SharedActions::angle2sector(float angle, float min_angle, float max_angle, float step_angle, unsigned int nsectors) {
 	
 	unsigned int idsector;
 
@@ -442,9 +408,10 @@ unsigned int DynamicGoals::angle2sector(float angle, float min_angle, float max_
 
 	return idsector;
 }
+*/
 
 /*
-float DynamicGoals::compute_position(const cnbiros_shared_navigation::SectorGrid& data) {
+float SharedActions::compute_position(const cnbiros_shared_navigation::SectorGrid& data) {
     
     float tposition = 1.0f;
     float cradius, cangle;
@@ -504,7 +471,8 @@ float DynamicGoals::compute_position(const cnbiros_shared_navigation::SectorGrid
     return tposition;
 }
 */
-bool DynamicGoals::on_set_parameters(cnbiros_shared_navigation::DynamicGoalsParameters::Request& req,
+/*
+bool SharedActions::on_set_parameters(cnbiros_shared_navigation::DynamicGoalsParameters::Request& req,
 									 cnbiros_shared_navigation::DynamicGoalsParameters::Response& res) {
 
 	res.result = true;
@@ -549,8 +517,9 @@ bool DynamicGoals::on_set_parameters(cnbiros_shared_navigation::DynamicGoalsPara
 
 	return res.result;
 }
+*/
 
-void DynamicGoals::Run(void) {
+void SharedActions::Run(void) {
    
 	actionlib::SimpleClientGoalState state(actionlib::SimpleClientGoalState::LOST);
 

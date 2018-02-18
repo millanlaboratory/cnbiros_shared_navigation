@@ -12,7 +12,7 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 generate_dynamic_reconfigure_options(
 	cfg/CostMapSector.cfg
 	cfg/PointSector.cfg
-	cfg/DynamicGoals.cfg
+	cfg/SharedActions.cfg
   #...
 )
 
@@ -53,7 +53,8 @@ add_library(cnbiros_shared_navigation
 			src/ProximitySector.cpp
 			src/ProximitySectorConverter.cpp
 			src/CostMapToProximitySector.cpp
-			src/PointToProximitySector.cpp)
+			src/PointToProximitySector.cpp
+			src/SharedActions.cpp)
 add_dependencies(cnbiros_shared_navigation cnbiros_shared_navigation_generate_messages_cpp)
 target_link_libraries(cnbiros_shared_navigation ${catkin_LIBRARIES})
 
