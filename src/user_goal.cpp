@@ -73,7 +73,7 @@ int main(int argc, char** argv){
 	std::string		frame_id	= "base_link";
 	float			radius		= 1.0f;
 	float			step        = (max_angle - min_angle)/(float)nsectors;
-	std::string		topic		= "/user";
+	std::string		topic		= "/point";
 
 
 	// Initialize SectorGrid message

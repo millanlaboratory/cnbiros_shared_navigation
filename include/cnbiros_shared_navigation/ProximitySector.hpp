@@ -4,6 +4,7 @@
 // System includes
 #include <cmath>
 #include <limits>
+#include <exception>
 
 // ROS includes
 #include <ros/ros.h>
@@ -21,8 +22,6 @@ typedef std::vector<float>::const_iterator ProximitySectorConstIt;
  *	is defined by sectors within a given angular range and with a given angular
  *	resolution.  For each sector, only the most proximal values are stored.
  *
- *	The sector map is always oriented towards the heading direction (i.e., the
- *	central sector corresponds to 0.0 degree orientation)
  */
 class ProximitySector {
 
@@ -41,8 +40,8 @@ class ProximitySector {
 		 * Empty constructor. 
 		 * Default values:
 		 *	- nsectors: 3
-		 *	- minangle: -90 degrees
-		 *	- maxangle:  90 degrees
+		 *	- minangle: 0.0 degrees
+		 *	- maxangle: 180.0 degrees
 		 *	- frameid:  "base_link"
 		 */
 		ProximitySector(void);
@@ -74,13 +73,15 @@ class ProximitySector {
 		void SetResolution(int nsectors);
 
 		/*!
-		 * Set the minimum angle of the map.
+		 * Set the minimum angle of the map with respect to the heading
+		 * direction.
 		 * @param min_angle	Minimum angle in the sector map
 		 */
 		void SetMinAngle(float min_angle);
 		
 		/*!
-		 * Set the maximum angle of the map.
+		 * Set the maximum angle of the map with respect to the heading
+		 * direction.
 		 * @param max_angle	Maximum angle in the sector map
 		 */
 		void SetMaxAngle(float max_angle);
@@ -148,9 +149,10 @@ class ProximitySector {
 		/*!
 		 * Get the related sector identified by a given angle
 		 * @param angle The given angle
-		 * @return The id of the sector associated to the given angle
+		 * @return The id of the sector associated to the given angle. -1 if the
+		 * angle is out of range
 		 */
-		unsigned int GetSector(float angle) const;
+		int GetSector(float angle) const;
 		
 		/*!
 		 * Get the value of the sector map at a given angle.

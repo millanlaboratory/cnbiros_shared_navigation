@@ -9,6 +9,4 @@
 	<!--- Run Move Base -->
 	<include file="$(find cnbiros_shared_navigation)/launch/ros_wheelchair_movebase.launch" />
 	
-	<!--- Run Costmap2SectorGrid -->
-	<include file="$(find cnbiros_shared_navigation)/launch/costmap_to_sectorgrid.launch" />
 </launch>

@@ -1,0 +1,20 @@
+frame_id:           "base_link"
+repellors_source:   "/repellors"
+attractors_source:  "/attractors"
+action_server:      "move_base"
+
+# For simulation
+repellors_strength:  1.0
+repellors_decay:     1.0
+repellors_occupancy: 10.0
+goal_max_distance:  1.0
+goal_decay_distance:     5.0
+command_timeout:    8.0
+
+# For real wheelchair
+#repellors_strength:     0.2
+#repellors_decay:        0.5
+#repellors_occupancy:    9.5
+#goal_max_distance:      2.0
+#goal_decay_distance:    5.0
+#command_timeout:        8.0

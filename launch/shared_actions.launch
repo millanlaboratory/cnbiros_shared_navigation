@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+	<!--- Run Costmap2ProximitySector -->
+	<include file="$(find cnbiros_shared_navigation)/launch/costmap_to_proximitysector.launch" />
+	<!--- Run Point2ProximitySector -->
+	<include file="$(find cnbiros_shared_navigation)/launch/point_to_proximitysector.launch" />
+	
+	<node pkg="cnbiros_shared_navigation" type="shared_actions" output="screen" name="shared_actions" >
+	  <rosparam file="$(find cnbiros_shared_navigation)/params/default_sharedactions_params.yaml" command="load" />
+  </node>
+</launch>

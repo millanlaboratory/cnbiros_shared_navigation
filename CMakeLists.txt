@@ -21,11 +21,6 @@ add_message_files(
 	ProximitySectorMsg.msg
 )
 
-add_service_files(
-  FILES
-  DynamicGoalsParameters.srv
-)
-
 generate_messages(
   DEPENDENCIES
   std_msgs
@@ -46,9 +41,6 @@ catkin_package(
 	grid_map_ros
 )
 
-#add_library(cnbiros_shared_navigation 
-#			src/CostMapToProximitySector.cpp)
-#			src/DynamicGoals.cpp)
 add_library(cnbiros_shared_navigation 
 			src/ProximitySector.cpp
 			src/ProximitySectorConverter.cpp
@@ -67,10 +59,10 @@ add_executable(point_to_proximitysector src/point_to_proximitysector.cpp)
 target_link_libraries(point_to_proximitysector cnbiros_shared_navigation ${catkin_LIBRARIES})
 add_dependencies(point_to_proximitysector ${PROJECT_NAME}_gencfg)
 
-#add_executable(dynamic_goals src/dynamic_goals.cpp)
-#target_link_libraries(dynamic_goals cnbiros_shared_navigation ${catkin_LIBRARIES})
-#add_dependencies(dynamic_goals ${PROJECT_NAME}_gencfg)
-#
+add_executable(shared_actions src/shared_actions.cpp)
+target_link_libraries(shared_actions cnbiros_shared_navigation ${catkin_LIBRARIES})
+add_dependencies(shared_actions ${PROJECT_NAME}_gencfg)
+
 #add_executable(user_goal src/user_goal.cpp)
 #target_link_libraries(user_goal cnbiros_shared_navigation ${catkin_LIBRARIES})
 #

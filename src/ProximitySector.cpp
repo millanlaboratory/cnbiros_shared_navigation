@@ -23,7 +23,6 @@ ProximitySector::ProximitySector(void) {
 	ProximitySector(1, -M_PI/2.0f, M_PI/2.0f, "base_link");
 };
 
-
 ProximitySector::~ProximitySector(void) {}
 
 void ProximitySector::SetResolution(int nsectors) {
@@ -110,8 +109,8 @@ bool ProximitySector::SetByCartesian(float x, float y) {
 	float angle, radius;
 
 	// Cartesian to Polar conversion
-	angle  = atan2(x, y);
-	radius = hypot(x, y); 
+	angle  = std::atan2(x, y) - M_PI/2.0f;
+	radius = std::hypot(x, y); 
 
 	// Set sectors
 	return this->SetByPolar(angle, radius);
@@ -129,15 +128,17 @@ float ProximitySector::GetRadius(ProximitySectorConstIt& it) const {
 
 float ProximitySector::GetAngle(ProximitySectorConstIt& it) {
 
-	unsigned int index = this->sectors_.begin() - it;
-	return this->min_angle_ + this->step_*(index + 0.5);
+	unsigned int index = it - this->sectors_.begin();
+	return (this->min_angle_ + this->step_*(index + 0.5));
 }
 
-unsigned int ProximitySector::GetSector(float angle) const {
+int ProximitySector::GetSector(float angle) const {
 
-	unsigned int idsector;
+	int	idsector;
 
-	if(angle == this->min_angle_) {
+	if( (angle < this->min_angle_) || (angle > this->max_angle_)) {
+		idsector = -1;
+	} else if(angle == this->min_angle_) {
 		idsector = 0;
 	} else if(angle == this->max_angle_) {
 		idsector = this->nsectors_ - 1;
@@ -150,15 +151,18 @@ unsigned int ProximitySector::GetSector(float angle) const {
 
 float ProximitySector::At(float angle) const {
 
-	// TO DO: Add exception if out of range
-
     int idsector;
 	float cvalue = std::numeric_limits<float>::infinity();
 
     // Determine the current sector, given the angle
-    idsector = std::floor(angle/this->step_);
+    //idsector = std::floor((angle-this->min_angle_)/this->step_);
+	idsector = this->GetSector(angle);
 	
-	if((idsector >= 0) && (idsector < this->sectors_.size())) {
+	if(idsector < 0) {
+		std::string error = "Requested angle (angle: " + std::to_string(angle*180.0f/M_PI)
+							+ ") out of sector range";
+		throw std::runtime_error(error);
+	} else {
 		cvalue = this->sectors_.at(idsector);
 	}
 
@@ -199,14 +203,16 @@ void ProximitySector::reset_sectors(void) {
 
 bool ProximitySector::set_sectors(float angle, float radius) {
 
-    unsigned int idsector;
+    int idsector;
     float cvalue;
-	bool retval = false;
-   
-    // Determine the current sector, given the angle
-    idsector = std::floor(angle/this->step_);
-
-	if(idsector < this->sectors_.size()) {
+	bool retval;
+  
+	// Determine the current sector, given the angle
+    idsector = this->GetSector(angle);
+	
+	if(idsector == -1) {
+		retval = false;
+	} else {
 		// Get the current value of the sector
     	cvalue = this->sectors_.at(idsector);
 
@@ -222,16 +228,21 @@ bool ProximitySector::set_sectors(float angle, float radius) {
 
 void ProximitySector::dump_sectors(void) {
 
-    float sector_lower, sector_upper, sector_value;
-	unsigned int i = 0;
+    float sector_lower, sector_upper;
+	float cvalue, cangle;
+	unsigned int csector;
+	ProximitySectorConstIt it;
 	
-	for(auto it=this->sectors_.begin(); it!=this->sectors_.end(); ++it) {
-		sector_lower = (this->min_angle_ + i*this->step_)*180.0f/M_PI;
-		sector_upper = sector_lower + this->step_*180.0f/M_PI;
-		sector_value = (*it);
+	for(it=this->Begin(); it!=this->End(); ++it) {
+		cvalue  = this->GetRadius(it);
+		cangle  = this->GetAngle(it);
+		csector = this->GetSector(cangle);
+		sector_lower = cangle - this->step_/2.0f;
+		sector_upper = cangle + this->step_/2.0f;
+
 		ROS_INFO("ProximitySector %u [%2.1f<->%2.1f]: %f [m]", 
-				  i, sector_lower, sector_upper, sector_value); 
-		i++;
+				  csector, sector_lower*180.0f/M_PI,
+				  sector_upper*180.0f/M_PI, cvalue); 
     }
 }
 

@@ -59,22 +59,22 @@ void CostMapToProximitySector::on_dynamic_reconfiguration(cnbiros_shared_navigat
 
 
 
-	if(std::fabs(config.threshold - this->threshold_) > 0.00001f) {
+	if(std::fabs(config.threshold - this->threshold_) > 0.0000001f) {
 		this->threshold_ = config.threshold;
 		ROS_WARN("Updated costmap threshold to %f", this->threshold_);
 	}
 	
-	if(std::fabs(config.min_angle - this->sector_.GetMinAngle()) > 0.00001f) {
+	if(std::fabs(config.min_angle - this->sector_.GetMinAngle()) > 0.0000001f) {
 		this->sector_.SetMinAngle(config.min_angle);
-		ROS_WARN("Updated minimum sector angle to %f [deg]", config.min_angle*180.0f/M_PI);
+		ROS_WARN("Updated minimum sector angle to %f [deg]", (config.min_angle)*180.0f/M_PI);
 	}
 	
-	if(std::fabs(config.max_angle - this->sector_.GetMaxAngle()) > 0.00001f) {
+	if(std::fabs(config.max_angle - this->sector_.GetMaxAngle()) > 0.0000001f) {
 		this->sector_.SetMaxAngle(config.max_angle);
-		ROS_WARN("Updated maximum sector angle to %f [deg]", config.max_angle*180.0f/M_PI);
+		ROS_WARN("Updated maximum sector angle to %f [deg]", (config.max_angle)*180.0f/M_PI);
 	}
 	
-	if(std::fabs(config.num_sectors - this->sector_.GetResolution()) > 0.00001f) {
+	if(std::fabs(config.num_sectors - this->sector_.GetResolution()) > 0.0000001f) {
 		this->sector_.SetResolution(config.num_sectors);
 		ROS_WARN("Updated number of sector to %d", config.num_sectors);
 	}
@@ -92,7 +92,7 @@ void CostMapToProximitySector::on_received_costmap(const nav_msgs::OccupancyGrid
 	} else {
 
 		// Debug
-		this->sector_.Dump();
+		//this->sector_.Dump();
 
 		// Convert sector to message
 		ProximitySectorConverter::ToMessage(this->sector_, msg_out);

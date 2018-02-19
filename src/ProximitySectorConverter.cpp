@@ -9,7 +9,6 @@ namespace cnbiros {
 
 bool ProximitySectorConverter::FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg,
 												 ProximitySector& sectors, float threshold) {
-	
 	grid_map::GridMap			map;
     grid_map::Position			position;
     geometry_msgs::PointStamped map_point;
@@ -25,7 +24,7 @@ bool ProximitySectorConverter::FromOccupancyGrid(const nav_msgs::OccupancyGrid& 
     sectors.Reset();
 
 	// Updating the frame id with the one of the occupancy grid
-	sectors.SetFrameId(msg.header.frame_id);
+	//sectors.SetFrameId(msg.header.frame_id);
 
     for (grid_map::GridMapIterator iterator(map); !iterator.isPastEnd(); ++iterator) {
 
@@ -42,10 +41,11 @@ bool ProximitySectorConverter::FromOccupancyGrid(const nav_msgs::OccupancyGrid& 
 
 			// Convert into geometry point
 		    map_point.header.frame_id = msg.header.frame_id;
+			map_point.header.stamp	  = msg.header.stamp;
 		    map_point.point.x = position(0);
 		    map_point.point.y = position(1);
 		    map_point.point.z = 0.0f;
-		 
+
 			// If in the front, update the sectors.
 			if(map_point.point.x > 0.0f) {
 				sectors.SetByCartesian(map_point.point.x, -map_point.point.y);
@@ -58,12 +58,14 @@ bool ProximitySectorConverter::FromOccupancyGrid(const nav_msgs::OccupancyGrid& 
 
 bool ProximitySectorConverter::FromPoint(const geometry_msgs::PointStamped& msg, ProximitySector& sectors) {
 
+	geometry_msgs::PointStamped  sector_point;
+
 	// Reset current sectors
 	sectors.Reset();
 
 	// Updating the frame id with the one of the occupancy grid
-	sectors.SetFrameId(msg.header.frame_id);
-	
+	//sectors.SetFrameId(msg.header.frame_id);
+
 	// If in the front, update the sectors.
 	if(msg.point.x > 0.0f) {
 		sectors.SetByCartesian(msg.point.x, -msg.point.y);
@@ -99,7 +101,7 @@ bool ProximitySectorConverter::ToMessage(const ProximitySector& sectors,
     msg.min_angle		= sectors.GetMinAngle();
     msg.max_angle		= sectors.GetMaxAngle();
     msg.nsectors		= sectors.GetResolution();
-    msg.step			= (msg.max_angle - msg.min_angle)/(float)msg.nsectors;
+    msg.step			= sectors.GetStep();
 
 	return true;
 }

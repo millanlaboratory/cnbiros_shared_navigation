@@ -3,6 +3,7 @@
 
 // ROS includes
 #include <ros/ros.h>
+#include <tf/transform_listener.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <geometry_msgs/PointStamped.h>
 #include <grid_map_ros/grid_map_ros.hpp>
