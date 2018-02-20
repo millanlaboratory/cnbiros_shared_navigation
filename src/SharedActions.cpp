@@ -69,6 +69,9 @@ bool SharedActions::configure(void) {
 	ROS_INFO("SharedActions command timeout:		%f", this->command_timeout_);
 	ROS_INFO("SharedActions update rate:			%f", this->update_rate_);
 
+	// Initialize to false availability of repellors_data
+	this->is_data_available_ = false;
+
 	return true;
 }
 
@@ -92,7 +95,7 @@ void SharedActions::MakeGoal(void) {
 	float angle;
 	float repangle;
 	float attangle;
-	float radius;
+	float radius = 0.0f;
 
 	
 	// Compute orientation for repellors
@@ -108,8 +111,10 @@ void SharedActions::MakeGoal(void) {
 	// Limit the orientation to the front
 	angle = this->goal_orientation_limits(angle, -M_PI/2.0f, M_PI/2.0f);	
 	
-	// Compute position for computed angle
-	radius = this->goal_position_logistic(this->repellors_data_, angle);
+	// Compute position for computed angle (if repellors_data_ is available)
+	if(this->is_data_available_ == true) {
+		radius = this->goal_position_logistic(this->repellors_data_, angle);
+	}
 
 	// Rotate angle (standard coordinate frame)	
 	angle = M_PI/2.0f + angle;
@@ -222,7 +227,7 @@ float SharedActions::goal_orientation_attractors(ProximitySector& sectors) {
 		if(std::isinf((*it)) == true)
 		    continue;
 
-		w  = -sectors.GetAngle(it);
+		w  = sectors.GetAngle(it);
     }
     return w;
 }
@@ -258,7 +263,7 @@ float SharedActions::goal_position_logistic(ProximitySector& sectors, float wesc
 	try {
 		cvalue = sectors.At(wescape);
 	} catch (std::runtime_error e) {
-		ROS_INFO("Error: %s", e.what());
+		ROS_ERROR("Error: %s", e.what());
 	}
 	
 	if(std::isinf(cvalue)) {
@@ -339,6 +344,10 @@ void SharedActions::on_reset_command_user(const ros::TimerEvent& event) {
 void SharedActions::on_receive_repellors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {
 
 	ROS_INFO("Repellor data received");
+
+	// Set true the availability of repellors data (used for first iteration)
+	this->is_data_available_ = true;
+	
 	// Convert and store repellor data
 	if(ProximitySectorConverter::FromMessage(data, this->repellors_data_) == false) {
 		ROS_ERROR("Cannot convert repellor proximity sector message");

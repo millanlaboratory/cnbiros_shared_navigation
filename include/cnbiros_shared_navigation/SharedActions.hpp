@@ -19,7 +19,6 @@
 #include "cnbiros_shared_navigation/SharedActionsConfig.h"
 
 #define SHAREDACTIONS_LOGISTIC_MINDISTANCE		0.01f
-#define SHAREDACTIONS_LOGISTIC_MEDIUMDISTANCE	2.0f
 
 namespace cnbiros {
     namespace navigation {
@@ -84,8 +83,8 @@ class SharedActions {
 		float		repellors_decay_;
 		float		goal_max_distance_;
 		float		goal_half_position_;
-		//float		goal_decay_distance_;
 		float		command_timeout_;
+		bool		is_data_available_;
 		
 		ProximitySector repellors_data_;
 		ProximitySector attractors_data_;
