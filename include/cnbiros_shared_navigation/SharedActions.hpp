@@ -79,11 +79,12 @@ class SharedActions {
 		move_base_msgs::MoveBaseGoal	goal_;
 
 		std::string	frame_id_;
+		float		robot_radius_;
 		float		repellors_strength_;
 		float		repellors_decay_;
-		float		repellors_occupancy_;
 		float		goal_max_distance_;
-		float		goal_decay_distance_;
+		float		goal_half_position_;
+		//float		goal_decay_distance_;
 		float		command_timeout_;
 		
 		ProximitySector repellors_data_;

@@ -78,9 +78,10 @@ void PointToProximitySector::on_dynamic_reconfiguration(cnbiros_shared_navigatio
 void PointToProximitySector::on_received_point(const geometry_msgs::PointStamped& msg_in) {
 
 	cnbiros_shared_navigation::ProximitySectorMsg msg_out;
+    tf::TransformListener	listener;
 
 	// Update the sector with point message
-	if(ProximitySectorConverter::FromPoint(msg_in, this->sector_) == false) {
+	if(ProximitySectorConverter::FromPoint(msg_in, &listener, this->sector_) == false) {
 		ROS_ERROR("Cannot importing the incoming message into ProximitySector");
 	} else {
 

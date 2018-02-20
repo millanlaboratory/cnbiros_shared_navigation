@@ -35,21 +35,27 @@ class ProximitySectorConverter {
 		 * Converts a OccupancyGrid message in a ProximitySector object. A
 		 * threshold on the occupancy grid values can be provided.
 		 * @param[in] msg The OccupancyGrid message
+		 * @param[in] listener A tf listener to apply transformation
 		 * @param[out] sectors The ProximitySector object
 		 * @param[in] threshold Value for thresholding the occupancy grid before
 		 * the conversion (default: 100.0f).
 		 * @return True if succesful, false otherwise.
 		 */
-		static bool FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg, ProximitySector& sectors, 
-		 					   float threshold=100.0f);
+		static bool FromOccupancyGrid(const nav_msgs::OccupancyGrid& msg, 
+									  tf::TransformListener* listener, 
+									  ProximitySector& sectors, 
+									  float threshold=100.0f);
 
 		/*!
 		 * Converts a PointStamped message in a ProximitySector object.
 		 * @param[in] msg The PointStamped message
+		 * @param[in] listener A tf listener to apply transformation
 		 * @param[out] sectors The ProximitySector object
 		 * @return True if succesful, false otherwise.
 		 */
-		static bool FromPoint(const geometry_msgs::PointStamped& msg, ProximitySector& sectors);
+		static bool FromPoint(const geometry_msgs::PointStamped& msg, 
+							  tf::TransformListener* listener, 
+							  ProximitySector& sectors);
 
 		/*!
 		 * Converts a ProximitySector object in a ProximitySector message.

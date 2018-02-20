@@ -85,9 +85,10 @@ void CostMapToProximitySector::on_dynamic_reconfiguration(cnbiros_shared_navigat
 void CostMapToProximitySector::on_received_costmap(const nav_msgs::OccupancyGrid& msg_in) {
 
 	cnbiros_shared_navigation::ProximitySectorMsg msg_out;
-    
+    tf::TransformListener	listener;
+	
 	// Update the sector with point message
-	if(ProximitySectorConverter::FromOccupancyGrid(msg_in, this->sector_, this->threshold_) == false) {
+	if(ProximitySectorConverter::FromOccupancyGrid(msg_in, &listener, this->sector_, this->threshold_) == false) {
 		ROS_ERROR("Cannot importing the incoming message into ProximitySector");
 	} else {
 

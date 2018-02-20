@@ -48,11 +48,11 @@ bool SharedActions::configure(void) {
 	this->private_nh_.param<std::string>("attractors_source", this->atttopic_, "/attractors");
 	this->private_nh_.param<std::string>("action_server", this->actionsrv_, "move_base");
 	this->private_nh_.param<std::string>("frame_id", this->frame_id_, "base_link");
+	this->private_nh_.param<float>("robot_radius", this->robot_radius_, 0.52f);
 	this->private_nh_.param<float>("repellors_strength", this->repellors_strength_, 0.2f);
 	this->private_nh_.param<float>("repellors_decay", this->repellors_decay_, 0.5f);
-	this->private_nh_.param<float>("repellors_occupancy", this->repellors_occupancy_, 9.5f);
 	this->private_nh_.param<float>("goal_max_distance", this->goal_max_distance_, 2.0f);
-	this->private_nh_.param<float>("goal_decay_distance", this->goal_decay_distance_, 5.0f);
+	this->private_nh_.param<float>("goal_half_position", this->goal_half_position_, 1.5f);
 	this->private_nh_.param<float>("command_timeout", this->command_timeout_, 8.0f);
 	this->private_nh_.param<float>("update_rate", this->update_rate_, 2.0f);
 
@@ -61,11 +61,11 @@ bool SharedActions::configure(void) {
 	ROS_INFO("SharedActions repellors topic:		%s", this->reptopic_.c_str());
 	ROS_INFO("SharedActions attractors topic:		%s", this->atttopic_.c_str());
 	ROS_INFO("SharedActions action server name:		%s", this->actionsrv_.c_str());
+	ROS_INFO("SharedActions robot circumscribed radius:	%f", this->robot_radius_);
 	ROS_INFO("SharedActions repellors strength:		%f", this->repellors_strength_);
 	ROS_INFO("SharedActions repellors decay:		%f", this->repellors_decay_);
-	ROS_INFO("SharedActions repellors occupancy:	%f", this->repellors_occupancy_);
 	ROS_INFO("SharedActions goal max distance:		%f", this->goal_max_distance_);
-	ROS_INFO("SharedActions goal distance decay:	%f", this->goal_decay_distance_);
+	ROS_INFO("SharedActions goal half position:		%f", this->goal_half_position_);
 	ROS_INFO("SharedActions command timeout:		%f", this->command_timeout_);
 	ROS_INFO("SharedActions update rate:			%f", this->update_rate_);
 
@@ -94,7 +94,6 @@ void SharedActions::MakeGoal(void) {
 	float attangle;
 	float radius;
 
-	// BE CAREFUL: FROM HERE ============>
 	
 	// Compute orientation for repellors
 	repangle  = this->goal_orientation_repellors(this->repellors_data_);
@@ -105,17 +104,16 @@ void SharedActions::MakeGoal(void) {
 	ROS_INFO("Usr angle (heading): %f [deg]", attangle*180.0f/M_PI);
 	
 	angle = repangle + attangle;
+
 	// Limit the orientation to the front
 	angle = this->goal_orientation_limits(angle, -M_PI/2.0f, M_PI/2.0f);	
 	
-	// <========= TO HERE: 0.0 degree corresponds to the heading direction
-	// (aka, -M_PI/2.0f with respect to the standard coordinates) 
-
-	//angle = M_PI/2.0f + angle;
-
 	// Compute position for computed angle
-	//radius = this->goal_position_logistic(this->repellors_data_, angle);
-	
+	radius = this->goal_position_logistic(this->repellors_data_, angle);
+
+	// Rotate angle (standard coordinate frame)	
+	angle = M_PI/2.0f + angle;
+
     // Make the goal given the computed angle and radius
 	this->goal_.target_pose.header.frame_id		= this->frame_id_;
     this->goal_.target_pose.pose.position.y		= radius*cos(angle);
@@ -123,7 +121,6 @@ void SharedActions::MakeGoal(void) {
     this->goal_.target_pose.pose.orientation	= tf::createQuaternionMsgFromYaw(angle - M_PI/2.0f);
     this->goal_.target_pose.header.stamp		= ros::Time::now();
     	
-	angle = M_PI/2.0f + angle;
 	ROS_INFO("New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
 }
 
@@ -176,7 +173,7 @@ void SharedActions::Run(void) {
 			// last user command received (if exists)
 			this->MakeGoal();
 			this->CancelGoal();
-			//this->SendGoal();
+			this->SendGoal();
 		}
 		ros::spinOnce();
 		this->rate_->sleep();
@@ -193,6 +190,8 @@ float SharedActions::goal_orientation_repellors(ProximitySector& sectors) {
     float hangle = 0.0f;
     float w = 0.0f;
 
+	float robotsize = 2.0f*(this->robot_radius_);
+
     sector_step	= sectors.GetStep();
 
     for(it=sectors.Begin(); it!=sectors.End(); ++it) {
@@ -202,18 +201,13 @@ float SharedActions::goal_orientation_repellors(ProximitySector& sectors) {
 
 		cradius = sectors.GetRadius(it);
 		cangle  = sectors.GetAngle(it);
-		printf("Current item: radius->%f, angle->%f\n", cradius, cangle*180.0f/M_PI);
 
 		clambda = this->repellors_strength_*exp(-(cradius/this->repellors_decay_));
 		csigma  = std::atan(std::tan(sector_step/2.0f) + 
-			           this->repellors_occupancy_/(this->repellors_occupancy_ + cradius));
+			           robotsize/(robotsize + cradius));
 		
-		w += clambda*(hangle-cangle)*exp(-(std::pow(hangle - cangle, 2))/(2.0f*pow(csigma, 2)));
-		printf("Current w: %f\n", w*180.0f/M_PI);
+		w -= clambda*(hangle-cangle)*exp(-(std::pow(hangle - cangle, 2))/(2.0f*pow(csigma, 2)));
     }
-
-	//w = (w - M_PI/2.0f);
-	//w = (w + M_PI/2.0f);
 
     return w;
 }
@@ -250,13 +244,16 @@ float SharedActions::goal_orientation_limits(float angle, float minangle, float 
 float SharedActions::goal_position_logistic(ProximitySector& sectors, float wescape) {
 
 	float cvalue;
-	float tposition;
+	float goaldistance;
 
-    float MaxDg		= this->goal_max_distance_;
-	float MinDg		= SHAREDACTIONS_LOGISTIC_MINDISTANCE;
-	float Slope		= this->goal_decay_distance_;
-	float MidPoint	= SHAREDACTIONS_LOGISTIC_MEDIUMDISTANCE;
-	float ShiftX	= (1.0f/std::exp(Slope))*((2.0f/MinDg) - 1.0f);
+    float MaxPosition = this->goal_max_distance_;
+	float MinPosition = SHAREDACTIONS_LOGISTIC_MINDISTANCE;
+	float MinDistance = this->robot_radius_;
+	float HalfPosition = this->goal_half_position_;
+	float Slope;
+
+	Slope = -std::log((MaxPosition/MinPosition) - 1.0f)*(1.0f/(MinDistance - HalfPosition));
+
 
 	try {
 		cvalue = sectors.At(wescape);
@@ -265,12 +262,12 @@ float SharedActions::goal_position_logistic(ProximitySector& sectors, float wesc
 	}
 	
 	if(std::isinf(cvalue)) {
-		tposition = MaxDg;
+		goaldistance = MaxPosition;
 	} else {
-		tposition = MaxDg/(1+ShiftX*std::exp(-Slope*(cvalue - MidPoint)));
+		goaldistance = MaxPosition/(1.0f + std::exp(-Slope*(cvalue-HalfPosition)));
 	}
 
-	return tposition;
+	return goaldistance;
 
 }
 
@@ -287,11 +284,6 @@ void SharedActions::reconfigure_callback(cnbiros_shared_navigation::SharedAction
 		ROS_WARN("Updated repellors decay to %f", this->repellors_decay_);
 	}
 	
-	if(std::fabs(config.param_repellors_occupancy - this->repellors_occupancy_) > 0.00001f) {
-		this->repellors_occupancy_ = config.param_repellors_occupancy;
-		ROS_WARN("Updated repellors occupancy to %f", this->repellors_occupancy_);
-	}
-	
 	if(std::fabs(config.param_command_timeout - this->command_timeout_) > 0.00001f) {
 		this->command_timeout_ = config.param_command_timeout;
 		ROS_WARN("Updated user's command timeout to %f", this->command_timeout_);
@@ -302,9 +294,9 @@ void SharedActions::reconfigure_callback(cnbiros_shared_navigation::SharedAction
 		ROS_WARN("Updated goal max distance to %f", this->goal_max_distance_);
 	}
 	
-	if(std::fabs(config.param_goal_decay_distance - this->goal_decay_distance_) > 0.00001f) {
-		this->goal_decay_distance_ = config.param_goal_decay_distance;
-		ROS_WARN("Updated goal decay distance to %f", this->goal_decay_distance_);
+	if(std::fabs(config.param_goal_half_position - this->goal_half_position_) > 0.00001f) {
+		this->goal_half_position_ = config.param_goal_half_position;
+		ROS_WARN("Updated goal half position to %f", this->goal_half_position_);
 	}
 	
 	if(std::fabs(config.param_update_rate - this->update_rate_) > 0.00001f) {
@@ -352,7 +344,7 @@ void SharedActions::on_receive_repellors(const cnbiros_shared_navigation::Proxim
 		ROS_ERROR("Cannot convert repellor proximity sector message");
 	}
 
-	this->repellors_data_.Dump();
+	//this->repellors_data_.Dump();
 }
 
 void SharedActions::on_receive_attractors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {

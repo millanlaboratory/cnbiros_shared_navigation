@@ -3,6 +3,7 @@
 
 // ROS includes
 #include <ros/ros.h>
+#include <tf/transform_listener.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <dynamic_reconfigure/server.h>
 
