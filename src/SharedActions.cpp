@@ -22,6 +22,9 @@ SharedActions::SharedActions(void) : private_nh_("~") {
 
 	// Initialize clearcostmap service
 	this->srv_clearcostmap_ = this->nh_.serviceClient<std_srvs::Empty>("/move_base/clear_costmaps");
+
+	// Initialize start/stop service server
+	this->srv_state_toggle_ = this->private_nh_.advertiseService("toggle_state", &SharedActions::on_request_state_toggle, this);
 	
 	// Initialize user command timer
 	this->init_command_timer(this->command_timeout_);
@@ -33,6 +36,9 @@ SharedActions::SharedActions(void) : private_nh_("~") {
 	this->f_ = boost::bind(&SharedActions::reconfigure_callback, this, _1, _2);
 	this->cfgserver_.setCallback(this->f_);
 
+	// If is running (autostart)
+	if(this->autostart_)
+		this->Start(); 
 }
 
 SharedActions::~SharedActions(void) {
@@ -55,6 +61,7 @@ bool SharedActions::configure(void) {
 	this->private_nh_.param<float>("goal_half_position", this->goal_half_position_, 1.5f);
 	this->private_nh_.param<float>("command_timeout", this->command_timeout_, 8.0f);
 	this->private_nh_.param<float>("update_rate", this->update_rate_, 2.0f);
+	this->private_nh_.param<bool>("autostart", this->autostart_, false);
 
 	// Dump parameters
 	ROS_INFO("SharedActions frame_id:				%s", this->frame_id_.c_str());
@@ -72,7 +79,14 @@ bool SharedActions::configure(void) {
 	// Initialize to false availability of repellors_data
 	this->is_data_available_ = false;
 
+	// Initialize is running to false
+	this->is_running_ = false;
+
 	return true;
+}
+
+bool SharedActions::IsRunning(void) {
+	return this->is_running_;
 }
 
 void SharedActions::WaitForServer(void) {
@@ -84,10 +98,17 @@ void SharedActions::WaitForServer(void) {
 }
 
 void SharedActions::Start(void) {
+	if(this->IsRunning() == false) {
+		this->is_running_ = true;
+		ROS_WARN("SharedActions started");
+	}
+}
 
-	this->MakeGoal();
-	this->CancelGoal();
-	this->SendGoal();
+void SharedActions::Stop(void) {
+	if(this->IsRunning() == true) {
+		this->is_running_ = false;
+		ROS_WARN("SharedActions stopped");
+	}
 }
 
 void SharedActions::MakeGoal(void) {
@@ -116,14 +137,14 @@ void SharedActions::MakeGoal(void) {
 		radius = this->goal_position_logistic(this->repellors_data_, angle);
 	}
 
-	// Rotate angle (standard coordinate frame)	
+	// Rotate angle (standard coordinate frame conventions)	
 	angle = M_PI/2.0f + angle;
 
     // Make the goal given the computed angle and radius
 	this->goal_.target_pose.header.frame_id		= this->frame_id_;
-    this->goal_.target_pose.pose.position.y		= radius*cos(angle);
+    this->goal_.target_pose.pose.position.y		= -radius*cos(angle);
     this->goal_.target_pose.pose.position.x		= radius*sin(angle);
-    this->goal_.target_pose.pose.orientation	= tf::createQuaternionMsgFromYaw(angle - M_PI/2.0f);
+    this->goal_.target_pose.pose.orientation	= tf::createQuaternionMsgFromYaw(angle-M_PI/2.0f);
     this->goal_.target_pose.header.stamp		= ros::Time::now();
     	
 	ROS_INFO("New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
@@ -154,6 +175,14 @@ void SharedActions::Run(void) {
 	std_srvs::Empty emptymsg;
 
     while(this->nh_.ok()) {
+		
+		ros::spinOnce();
+		this->rate_->sleep();
+
+		if(this->is_running_ != true) {
+			ROS_WARN_THROTTLE(5, "SharedAction waiting to be started...");
+			continue;
+		}
 
 		if(this->actioncln_->isServerConnected()) {
 			
@@ -180,8 +209,6 @@ void SharedActions::Run(void) {
 			this->CancelGoal();
 			this->SendGoal();
 		}
-		ros::spinOnce();
-		this->rate_->sleep();
     }
 
 }
@@ -211,7 +238,7 @@ float SharedActions::goal_orientation_repellors(ProximitySector& sectors) {
 		csigma  = std::atan(std::tan(sector_step/2.0f) + 
 			           robotsize/(robotsize + cradius));
 		
-		w -= clambda*(hangle-cangle)*exp(-(std::pow(hangle - cangle, 2))/(2.0f*pow(csigma, 2)));
+		w += clambda*(hangle-cangle)*exp(-(std::pow(hangle - cangle, 2))/(2.0f*pow(csigma, 2)));
     }
 
     return w;
@@ -219,15 +246,15 @@ float SharedActions::goal_orientation_repellors(ProximitySector& sectors) {
 
 float SharedActions::goal_orientation_attractors(ProximitySector& sectors) {
 
-    float w;
 	ProximitySectorConstIt it;
+    float w = 0.0f;
 
     for(it=sectors.Begin(); it!=sectors.End(); ++it) {
 
 		if(std::isinf((*it)) == true)
 		    continue;
 
-		w  = sectors.GetAngle(it);
+		w  += sectors.GetAngle(it);
     }
     return w;
 }
@@ -340,6 +367,21 @@ void SharedActions::on_reset_command_user(const ros::TimerEvent& event) {
 	this->command_timer_.stop();
 }
 
+bool SharedActions::on_request_state_toggle(std_srvs::Trigger::Request& req,
+											std_srvs::Trigger::Response& res) {
+
+	if(this->IsRunning() == true) {
+		this->Stop();
+		res.message = "Shared action has been stopped";
+	} else {
+		this->Start();
+		res.message = "Shared action is running.";
+	}
+	res.success = true;
+
+	return res.success;
+}
+
 
 void SharedActions::on_receive_repellors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {
 
@@ -362,6 +404,9 @@ void SharedActions::on_receive_attractors(const cnbiros_shared_navigation::Proxi
 	if(ProximitySectorConverter::FromMessage(data, this->attractors_data_) == false) {
 		ROS_ERROR("Cannot convert attractors proximity sector message");
 	}
+
+	if(this->is_running_ == false)
+		return;
 
 	// Update the timer for command timeout
 	this->command_timer_.setPeriod(ros::Duration(this->command_timeout_));

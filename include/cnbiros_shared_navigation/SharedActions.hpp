@@ -8,6 +8,7 @@
 #include <ros/ros.h>
 #include <tf/tf.h>
 #include <std_srvs/Empty.h>
+#include <std_srvs/Trigger.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <dynamic_reconfigure/server.h>
@@ -37,8 +38,10 @@ class SharedActions {
 		void SendGoal(void);
 		void CancelGoal(void);
 
-		void Start(void);
 		void Run(void);
+		bool IsRunning(void);
+		void Start(void);
+		void Stop(void);
 		bool configure(void);
 
     protected:
@@ -60,6 +63,8 @@ class SharedActions {
 		void reconfigure_callback(cnbiros_shared_navigation::SharedActionsConfig &config, uint32_t level);
 		
 		void on_reset_command_user(const ros::TimerEvent& event);
+		bool on_request_state_toggle(std_srvs::Trigger::Request& req,
+									 std_srvs::Trigger::Response& res);
 
     protected:
 		ros::NodeHandle nh_;
@@ -74,8 +79,12 @@ class SharedActions {
 		MoveBaseClient*	actioncln_;
 
 		ros::ServiceClient  srv_clearcostmap_;
+		ros::ServiceServer	srv_state_toggle_;
 		
 		move_base_msgs::MoveBaseGoal	goal_;
+
+		bool		is_running_;
+		bool		autostart_;
 
 		std::string	frame_id_;
 		float		robot_radius_;

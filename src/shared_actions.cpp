@@ -9,9 +9,6 @@ int main(int argc, char **argv) {
 	// Wait for Server
 	sharedactions.WaitForServer();	
 
-	// Send start goal (forward)
-	//sharedactions.Start();
-
 	sharedactions.Run();
 
 	return 0;
