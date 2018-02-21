@@ -410,10 +410,10 @@ void SharedActions::on_receive_attractors(const cnbiros_shared_navigation::Proxi
 	this->command_timer_.setPeriod(ros::Duration(this->command_timeout_));
 	this->command_timer_.start();
 
-	// Force new goal immediately
-	this->MakeGoal();
-	this->CancelGoal();
-	this->SendGoal();
+	//// Force new goal immediately
+	//this->MakeGoal();
+	//this->CancelGoal();
+	//this->SendGoal();
 }
     }
 }

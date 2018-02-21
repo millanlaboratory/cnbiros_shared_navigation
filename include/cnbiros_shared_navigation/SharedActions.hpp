@@ -26,31 +26,130 @@ namespace cnbiros {
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
+/*!
+ * SharedActions implements a semi-autonomous navigation modality by creating
+ * goals for the ROS navigation package (e.g., move_base) according to the a
+ * given occupancy grid and possible commands of the user. Every time a new
+ * occupancy grid or a user's command is available (as ProximitySector map),
+ * they are stored. At each iteration, the SharedActions computes a new action
+ * goal for the ROS navigation package based on a dynamic field algorithm and
+ * taking into account the repellors in the current stored occupancy grid (e.g.,
+ * obstacles) and the attractors in the current stored user's command. 
+ * It checks the status of the current goal, and in the case of LOST or ABORTED
+ * response, it ask for clearing the costmap.
+ *
+ * It works in parallel to a ROS navigation package (e.g., move_base).
+ * Internally, it exploits the library object ProximitySector.
+ *
+ * It possible to dynamically reconfigure the parameters.
+ *
+ * Debug logging level prints out useful information for debugging.
+ */
 class SharedActions {
     
     public:
+		/*! 
+		 * Constructor.
+		 */
 		SharedActions(void);
+		
+		/*! 
+		 * Destructor.
+		 */
 		virtual ~SharedActions(void);
 
-		void WaitForServer(void);
+		/*!
+		 * Blocking method that waits for the action server to come up.
+		 */
+		virtual void WaitForServer(void);
 
-		void MakeGoal(void);
-		void SendGoal(void);
-		void CancelGoal(void);
+		/*!
+		 * Method that takes the stored occupancy grid and user's command and
+		 * create a new goal accordingly.
+		 */
+		virtual void MakeGoal(void);
 
-		void Run(void);
+		/*!
+		 * Method to send the goal to the action server.
+		 */
+		virtual void SendGoal(void);
+
+		/*!
+		 * Ask to cancel the current goals in the action server.
+		 */
+		virtual void CancelGoal(void);
+
+		/*!
+		 * Configure the class parameters.
+		 */
+		virtual bool configure(void);
+
+		/*!
+		 * Main loop of the class. At each iteration, a new goal is computed
+		 * accordingly to the stored occupancy grid and user's command.
+		 */
+		virtual void Run(void);
+		
+		/*!
+		 * Check if the object is running.
+		 * @return True if success, false otherwise.
+		 */
 		bool IsRunning(void);
+
+		/*!
+		 * Method to set 'running' the state of the object.
+		 */
 		void Start(void);
+		
+		/*!
+		 * Method to set 'stop' the state of the object.
+		 */
 		void Stop(void);
-		bool configure(void);
 
     protected:
+
+		/*!
+		 * Protected method to compute the orientation given the occupancy grid,
+		 * according to Dynamic Field algorithm.
+		 * @param data Occupancy grid in ProximitySector format
+		 * @return Computed orientation
+		 */
 		float goal_orientation_repellors(ProximitySector& data);
+		
+		/*!
+		 * Protected method to compute the orientation given the user's command,
+		 * according to Dynamic Field algorithm.
+		 * @param data User's command in ProximitySector format
+		 * @return Computed orientation
+		 */
 		float goal_orientation_attractors(ProximitySector& data);
+		
+		/*!
+		 * Protected method to limit an angle in a given range
+		 * @param angle Input angle
+		 * @param minangle Lower limit value
+		 * @param maxangle Upper limit value
+		 * @return Limited angle
+		 */
 		float goal_orientation_limits(float angle, float minangle, float maxangle);	
 
-		float goal_position_exponential(ProximitySector& data, float w);
+		/*!
+		 * Protected method to compute the distance of the goal, given the
+		 * occupancy grid and the current target orientation.
+		 * It check the distance of the obstacle for the target orientation and
+		 * then it applies a logistic function to determine the current distance
+		 * of the goal.
+		 * @param data Occupancy grid in ProximitySector format
+		 * @param w Target goal orientation
+		 * @return Computed distance of the goal
+		 */
 		float goal_position_logistic(ProximitySector& data, float w);
+	
+		/*!
+		 * Protected method to dynamic reconfiguration.
+		 */
+		virtual void reconfigure_callback(cnbiros_shared_navigation::SharedActionsConfig &config, 
+										  uint32_t level);
 
 	private:
 		void init_command_timer(float timeout);
@@ -59,10 +158,8 @@ class SharedActions {
 		
 		void on_receive_repellors(const cnbiros_shared_navigation::ProximitySectorMsg& data);
 		void on_receive_attractors(const cnbiros_shared_navigation::ProximitySectorMsg& data);
-		
-		void reconfigure_callback(cnbiros_shared_navigation::SharedActionsConfig &config, uint32_t level);
-		
 		void on_reset_command_user(const ros::TimerEvent& event);
+		
 		bool on_request_state_toggle(std_srvs::Trigger::Request& req,
 									 std_srvs::Trigger::Response& res);
 
