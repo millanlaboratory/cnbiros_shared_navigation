@@ -116,10 +116,34 @@ bool ProximitySector::SetByCartesian(float x, float y) {
 	return this->SetByPolar(angle, radius);
 }
 
-void ProximitySector::Dump(void) {
+std::string ProximitySector::ToString(ProximitySectorConstIt& it) {
 
-	// Dump sectors
-	this->dump_sectors();
+	std::string message;
+	float angle;
+
+	angle = this->GetAngle(it);
+	message = this->ToString(angle);
+
+	return message;
+}
+
+std::string ProximitySector::ToString(float angle) {
+	
+	std::string message;
+	int idsector;
+	float sector_lower, sector_upper, radius;
+
+	idsector = this->GetSector(angle);
+	radius   = this->At(angle);
+	sector_lower = (angle - this->GetStep()/2.0f)*180.0f/M_PI;
+	sector_upper = (angle + this->GetStep()/2.0f)*180.0f/M_PI;
+
+	message = "Sector " + std::to_string(idsector) +  " [" +
+			  std::to_string(sector_lower) + "<->" +
+			  std::to_string(sector_upper) + "]: " +
+			  std::to_string(radius) + " [m]";
+
+	return message;
 }
 
 float ProximitySector::GetRadius(ProximitySectorConstIt& it) const {
@@ -225,27 +249,6 @@ bool ProximitySector::set_sectors(float angle, float radius) {
 
 	return retval;
 }
-
-void ProximitySector::dump_sectors(void) {
-
-    float sector_lower, sector_upper;
-	float cvalue, cangle;
-	unsigned int csector;
-	ProximitySectorConstIt it;
-	
-	for(it=this->Begin(); it!=this->End(); ++it) {
-		cvalue  = this->GetRadius(it);
-		cangle  = this->GetAngle(it);
-		csector = this->GetSector(cangle);
-		sector_lower = cangle - this->step_/2.0f;
-		sector_upper = cangle + this->step_/2.0f;
-
-		ROS_INFO("ProximitySector %u [%2.1f<->%2.1f]: %f [m]", 
-				  csector, sector_lower*180.0f/M_PI,
-				  sector_upper*180.0f/M_PI, cvalue); 
-    }
-}
-
 	}
 }
 

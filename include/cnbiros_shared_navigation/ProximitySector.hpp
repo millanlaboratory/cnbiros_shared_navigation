@@ -4,11 +4,9 @@
 // System includes
 #include <cmath>
 #include <limits>
-#include <exception>
-
-// ROS includes
-#include <ros/ros.h>
-
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace cnbiros {
     namespace navigation {
@@ -192,9 +190,20 @@ class ProximitySector {
 		void  Reset(void);
 
 		/*!
-		 * Dump the current values of the sector map.
+		 * Get value of a given sector in string format (for debugging)
+		 * @param it	Sector iterator
+		 * @return The value of the given sector ( Sector SectorId
+		 * [SectorLower<->SectorUpper]: Distance [m] )
 		 */
-		void  Dump(void);
+		std::string ToString(ProximitySectorConstIt& it);
+		
+		/*!
+		 * Get value of a given sector in string format (for debugging)
+		 * @param angle	Requested angle
+		 * @return The value of the given sector ( Sector SectorId
+		 * [SectorLower<->SectorUpper]: Distance [m] )
+		 */
+		std::string ToString(float angle);
 		
 	protected:
 		/*!
@@ -216,11 +225,6 @@ class ProximitySector {
 		 * Get value in a given angle.
 		 */
 		void get_sectors(float angle);
-
-		/*! 
-		 * Dump sector values
-		 */
-		void dump_sectors(void);
 
 	public:
 		//! Iterator pointing to the begin of the sector map

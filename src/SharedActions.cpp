@@ -121,11 +121,11 @@ void SharedActions::MakeGoal(void) {
 	
 	// Compute orientation for repellors
 	repangle  = this->goal_orientation_repellors(this->repellors_data_);
-	ROS_INFO("Map angle (heading): %f [deg]", repangle*180.0f/M_PI);
+	ROS_DEBUG_NAMED("sharedactions", "Map angle (heading): %f [deg]", repangle*180.0f/M_PI);
 	
 	// Compute orientation for attractors
 	attangle = this->goal_orientation_attractors(this->attractors_data_);
-	ROS_INFO("Usr angle (heading): %f [deg]", attangle*180.0f/M_PI);
+	ROS_DEBUG_NAMED("sharedactions", "Usr angle (heading): %f [deg]", attangle*180.0f/M_PI);
 	
 	angle = repangle + attangle;
 
@@ -147,7 +147,7 @@ void SharedActions::MakeGoal(void) {
     this->goal_.target_pose.pose.orientation	= tf::createQuaternionMsgFromYaw(angle-M_PI/2.0f);
     this->goal_.target_pose.header.stamp		= ros::Time::now();
     	
-	ROS_INFO("New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
+	ROS_DEBUG_NAMED("sharedactions", "New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
 }
 
 
@@ -345,7 +345,7 @@ void SharedActions::init_command_timer(float timeout) {
 						   ros::Duration(this->command_timeout_), 
 						   &SharedActions::on_reset_command_user,
 						   this);
-	ROS_INFO("Command timer initialize with %f timeout", this->command_timeout_);
+	ROS_WARN("Command timer initialize with %f timeout", this->command_timeout_);
 }
 
 
@@ -384,8 +384,6 @@ bool SharedActions::on_request_state_toggle(std_srvs::Trigger::Request& req,
 
 
 void SharedActions::on_receive_repellors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {
-
-	ROS_INFO("Repellor data received");
 
 	// Set true the availability of repellors data (used for first iteration)
 	this->is_data_available_ = true;

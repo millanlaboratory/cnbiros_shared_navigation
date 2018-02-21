@@ -92,8 +92,10 @@ void CostMapToProximitySector::on_received_costmap(const nav_msgs::OccupancyGrid
 		ROS_ERROR("Cannot importing the incoming message into ProximitySector");
 	} else {
 
-		// Debug
-		//this->sector_.Dump();
+		// Dump for debugging
+		ProximitySectorConstIt	it;
+		for(it=this->sector_.Begin(); it!=this->sector_.End(); ++it)
+			ROS_DEBUG_NAMED("costmaptosector", "%s", this->sector_.ToString(it).c_str());
 
 		// Convert sector to message
 		ProximitySectorConverter::ToMessage(this->sector_, msg_out);
