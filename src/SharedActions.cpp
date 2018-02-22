@@ -10,6 +10,16 @@ SharedActions::SharedActions(void) : private_nh_("~") {
 
     this->actioncln_ = nullptr;
     
+	// Initialize user command timer
+	this->init_command_timer(1.0f);
+
+	// Initialize update rate
+	this->init_update_rate(1.0f);
+	
+	// Dynamic reconfiguration
+	this->f_ = boost::bind(&SharedActions::reconfigure_callback, this, _1, _2);
+	this->cfgserver_.setCallback(this->f_);
+	
 	// Configure node
 	this->configure();
 
@@ -26,15 +36,6 @@ SharedActions::SharedActions(void) : private_nh_("~") {
 	// Initialize start/stop service server
 	this->srv_state_toggle_ = this->private_nh_.advertiseService("toggle_state", &SharedActions::on_request_state_toggle, this);
 	
-	// Initialize user command timer
-	this->init_command_timer(this->command_timeout_);
-
-	// Initialize update rate
-	this->init_update_rate(this->update_rate_);
-
-	// Dynamic reconfiguration
-	this->f_ = boost::bind(&SharedActions::reconfigure_callback, this, _1, _2);
-	this->cfgserver_.setCallback(this->f_);
 
 	// If is running (autostart)
 	if(this->autostart_)

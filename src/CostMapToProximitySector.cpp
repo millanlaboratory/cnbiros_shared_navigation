@@ -8,6 +8,10 @@ namespace cnbiros {
 
 CostMapToProximitySector::CostMapToProximitySector(void) : private_nh_("~") {
 
+	// Initialize dynamic reconfiguration server
+	this->f_ = boost::bind(&CostMapToProximitySector::on_dynamic_reconfiguration, this, _1, _2);
+	this->cfgserver_.setCallback(this->f_);
+	
 	// Configure node
 	this->configure();
 
@@ -15,9 +19,6 @@ CostMapToProximitySector::CostMapToProximitySector(void) : private_nh_("~") {
     this->sub_ = this->nh_.subscribe(this->stopic_, 50, &CostMapToProximitySector::on_received_costmap, this);
     this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximitySectorMsg>(this->ptopic_, 1000);
 
-	// Initialize dynamic reconfiguration server
-	this->f_ = boost::bind(&CostMapToProximitySector::on_dynamic_reconfiguration, this, _1, _2);
-	this->cfgserver_.setCallback(this->f_);
 }
 
 CostMapToProximitySector::~CostMapToProximitySector(void) {}
