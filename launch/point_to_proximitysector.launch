@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
-  <node pkg="cnbiros_shared_navigation" type="point_to_proximitysector" output="screen" name="point_to_proximitysector" >
-	  <rosparam file="$(find cnbiros_shared_navigation)/params/default_proximitysector_params.yaml" command="load" />
+	<arg name="proximitysector_params" default="$(find cnbiros_shared_navigation)/params/default_proximitysector_params.yaml"/>
+	<node pkg="cnbiros_shared_navigation" type="point_to_proximitysector" output="screen" name="point_to_proximitysector" >
+	  <rosparam subst_value="True" file="$(arg proximitysector_params)" command="load" />
   </node>
 </launch>
