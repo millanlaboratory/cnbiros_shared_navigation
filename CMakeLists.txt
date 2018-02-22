@@ -1,7 +1,7 @@
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 cmake_minimum_required(VERSION 2.8.3)
 project(cnbiros_shared_navigation)
-find_package(catkin REQUIRED COMPONENTS roscpp actionlib std_msgs nav_msgs message_generation grid_map_ros tf costmap_2d move_base move_base_msgs  grid_map_ros)
+find_package(catkin REQUIRED COMPONENTS roscpp actionlib std_msgs nav_msgs message_generation grid_map_ros tf costmap_2d move_base_msgs  grid_map_ros)
 
 SET(CMAKE_BUILD_TYPE RelWithDebInfo)
 
@@ -36,7 +36,6 @@ catkin_package(
   CATKIN_DEPENDS
   	roscpp
 	nav_msgs
-	move_base
 	move_base_msgs
 	grid_map_ros
 )
