@@ -277,8 +277,10 @@ float SharedActions::goal_orientation_limits(float angle, float minangle, float 
 
 float SharedActions::goal_position_logistic(ProximitySector& sectors, float wescape) {
 
-	float cvalue = std::numeric_limits<float>::infinity();
+	//float cvalue = std::numeric_limits<float>::infinity();
+	ProximitySectorConstIt it;
 	float goaldistance;
+	std::vector<float> colliding_distances;
 
     float MaxPosition = this->goal_max_distance_;
 	float MinPosition = SHAREDACTIONS_LOGISTIC_MINDISTANCE;
@@ -286,16 +288,43 @@ float SharedActions::goal_position_logistic(ProximitySector& sectors, float wesc
 	float HalfPosition = this->goal_half_position_;
 	float Slope;
 
-	Slope = -std::log((MaxPosition/MinPosition) - 1.0f)*(1.0f/(MinDistance - HalfPosition));
+	float cangle, cdistance, cprojection;
+	float closest_distance = MaxPosition;
+	float cvalue;
 
-	for(auto it=sectors.Begin(); it!=sectors.End(); ++it)
-		cvalue = std::min(cvalue, (*it));
+	for(it=sectors.Begin(); it!=sectors.End(); ++it) {
+
+		if(std::isinf((*it)) == true)
+		    continue;
+
+		cdistance	= sectors.GetRadius(it);
+		cangle		= sectors.GetAngle(it) + M_PI/2.0f;
+		cprojection = std::fabs(cdistance*cos(cangle)); 
+		
+		// Check if the projection is inside the radius. In that case, store the
+		// distance
+		if(cprojection <= this->robot_radius_)
+			colliding_distances.push_back(cdistance);
+	}
+
+	// Among the possible colliding distances, take the minimum
+	for(auto itd=colliding_distances.begin(); itd!=colliding_distances.end(); ++itd) {
+		closest_distance = std::min(closest_distance, (*itd));
+	}
+
+	// Using the closest distance in the logistic regression
+	cvalue = closest_distance;
+
+	//for(auto it=sectors.Begin(); it!=sectors.End(); ++it)
+	//	cvalue = std::min(cvalue, (*it));
 
 	//try {
 	//	cvalue = sectors.At(wescape);
 	//} catch (std::runtime_error e) {
 	//	ROS_ERROR("Error: %s", e.what());
 	//}
+	
+	Slope = -std::log((MaxPosition/MinPosition) - 1.0f)*(1.0f/(MinDistance - HalfPosition));
 	
 	if(std::isinf(cvalue)) {
 		goaldistance = MaxPosition;
