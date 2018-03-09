@@ -148,7 +148,8 @@ void SharedActions::MakeGoal(void) {
     this->goal_.target_pose.pose.orientation	= tf::createQuaternionMsgFromYaw(angle-M_PI/2.0f);
     this->goal_.target_pose.header.stamp		= ros::Time::now();
     	
-	ROS_DEBUG_NAMED("sharedactions", "New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
+	//ROS_DEBUG_NAMED("sharedactions", "New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
+	ROS_INFO("New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
 }
 
 
@@ -276,7 +277,7 @@ float SharedActions::goal_orientation_limits(float angle, float minangle, float 
 
 float SharedActions::goal_position_logistic(ProximitySector& sectors, float wescape) {
 
-	float cvalue;
+	float cvalue = std::numeric_limits<float>::infinity();
 	float goaldistance;
 
     float MaxPosition = this->goal_max_distance_;
@@ -287,12 +288,14 @@ float SharedActions::goal_position_logistic(ProximitySector& sectors, float wesc
 
 	Slope = -std::log((MaxPosition/MinPosition) - 1.0f)*(1.0f/(MinDistance - HalfPosition));
 
+	for(auto it=sectors.Begin(); it!=sectors.End(); ++it)
+		cvalue = std::min(cvalue, (*it));
 
-	try {
-		cvalue = sectors.At(wescape);
-	} catch (std::runtime_error e) {
-		ROS_ERROR("Error: %s", e.what());
-	}
+	//try {
+	//	cvalue = sectors.At(wescape);
+	//} catch (std::runtime_error e) {
+	//	ROS_ERROR("Error: %s", e.what());
+	//}
 	
 	if(std::isinf(cvalue)) {
 		goaldistance = MaxPosition;
