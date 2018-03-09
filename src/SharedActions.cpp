@@ -281,6 +281,7 @@ float SharedActions::goal_position_logistic(ProximitySector& sectors, float wesc
 	ProximitySectorConstIt it;
 	float goaldistance;
 	std::vector<float> colliding_distances;
+	std::vector<float> colliding_angles;
 
     float MaxPosition = this->goal_max_distance_;
 	float MinPosition = SHAREDACTIONS_LOGISTIC_MINDISTANCE;
@@ -290,6 +291,7 @@ float SharedActions::goal_position_logistic(ProximitySector& sectors, float wesc
 
 	float cangle, cdistance, cprojection;
 	float closest_distance = MaxPosition;
+	float closest_angle = 0.0f;
 	float cvalue;
 
 	for(it=sectors.Begin(); it!=sectors.End(); ++it) {
@@ -303,14 +305,21 @@ float SharedActions::goal_position_logistic(ProximitySector& sectors, float wesc
 		
 		// Check if the projection is inside the radius. In that case, store the
 		// distance
-		if(cprojection <= this->robot_radius_)
+		if(cprojection <= this->robot_radius_) {
 			colliding_distances.push_back(cdistance);
+			colliding_angles.push_back(cangle-M_PI/2.0f);
+		}
 	}
 
-	// Among the possible colliding distances, take the minimum
+	auto i = 0;
 	for(auto itd=colliding_distances.begin(); itd!=colliding_distances.end(); ++itd) {
-		closest_distance = std::min(closest_distance, (*itd));
+		if(closest_distance < (*itd)) {
+			closest_distance = (*itd);
+			closest_angle    = colliding_angles.at(i);
+		}
+		i++;
 	}
+	ROS_INFO("Closest obstacle at %f [m] and %f [deg]", closest_distance, closest_angle*180.0f/M_PI);
 
 	// Using the closest distance in the logistic regression
 	cvalue = closest_distance;
