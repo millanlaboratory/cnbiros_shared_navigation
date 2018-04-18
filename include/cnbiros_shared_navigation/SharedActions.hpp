@@ -183,6 +183,8 @@ class SharedActions {
 		bool		is_running_;
 		bool		autostart_;
 		bool		on_place_;
+		bool		enable_repellors_;
+		bool		enable_attractors_;
 
 		std::string	frame_id_;
 		float		robot_radius_;

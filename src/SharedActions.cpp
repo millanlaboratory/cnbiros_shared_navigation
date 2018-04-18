@@ -64,6 +64,8 @@ bool SharedActions::configure(void) {
 	this->private_nh_.param<float>("update_rate", this->update_rate_, 2.0f);
 	this->private_nh_.param<bool>("autostart", this->autostart_, false);
 	this->private_nh_.param<bool>("on_place", this->on_place_, false);
+	this->private_nh_.param<bool>("enable_repellors", this->enable_repellors_, true);
+	this->private_nh_.param<bool>("enable_attractors", this->enable_attractors_, true);
 
 	// Dump parameters
 	ROS_INFO("SharedActions frame_id:				%s", this->frame_id_.c_str());
@@ -116,18 +118,22 @@ void SharedActions::Stop(void) {
 void SharedActions::MakeGoal(void) {
 
 	float angle;
-	float repangle;
-	float attangle;
+	float repangle = 0.0f;
+	float attangle = 0.0f;
 	float radius = 0.0f;
 
 	
 	// Compute orientation for repellors
-	repangle  = this->goal_orientation_repellors(this->repellors_data_);
-	ROS_DEBUG_NAMED("sharedactions", "Map angle (heading): %f [deg]", repangle*180.0f/M_PI);
+	if(this->enable_repellors_ == true) {
+		repangle  = this->goal_orientation_repellors(this->repellors_data_);
+		ROS_DEBUG_NAMED("sharedactions", "Map angle (heading): %f [deg]", repangle*180.0f/M_PI);
+	}
 	
 	// Compute orientation for attractors
-	attangle = this->goal_orientation_attractors(this->attractors_data_);
-	ROS_DEBUG_NAMED("sharedactions", "Usr angle (heading): %f [deg]", attangle*180.0f/M_PI);
+	if(this->enable_attractors_ == true) {
+		attangle = this->goal_orientation_attractors(this->attractors_data_);
+		ROS_DEBUG_NAMED("sharedactions", "Usr angle (heading): %f [deg]", attangle*180.0f/M_PI);
+	}
 	
 	angle = repangle + attangle;
 
