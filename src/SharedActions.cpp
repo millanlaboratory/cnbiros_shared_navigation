@@ -63,6 +63,7 @@ bool SharedActions::configure(void) {
 	this->private_nh_.param<float>("command_timeout", this->command_timeout_, 8.0f);
 	this->private_nh_.param<float>("update_rate", this->update_rate_, 2.0f);
 	this->private_nh_.param<bool>("autostart", this->autostart_, false);
+	this->private_nh_.param<bool>("on_place", this->on_place_, false);
 
 	// Dump parameters
 	ROS_INFO("SharedActions frame_id:				%s", this->frame_id_.c_str());
@@ -134,7 +135,7 @@ void SharedActions::MakeGoal(void) {
 	angle = this->goal_orientation_limits(angle, -M_PI/2.0f, M_PI/2.0f);	
 	
 	// Compute position for computed angle (if repellors_data_ is available)
-	if(this->is_data_available_ == true) {
+	if(this->is_data_available_ == true && this->on_place_ == false) {
 		radius = this->goal_position_logistic(this->repellors_data_, angle);
 	}
 
