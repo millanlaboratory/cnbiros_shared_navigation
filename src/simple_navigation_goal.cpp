@@ -6,6 +6,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <tf/tf.h>
+
 
 #define CMD_LEFT   'a'
 #define CMD_RIGHT  'd'
@@ -105,7 +107,7 @@ int main(int argc, char** argv){
     	goal.target_pose.pose.position.x = posx;
     	goal.target_pose.pose.position.y = posy;
     	//goal.target_pose.pose.orientation.w = 1.0f;
-		goal.target.pose.pose.orientation = tf::createQuaternionMsgFromYaw(angle-M_PI/2.0f);
+		goal.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(angle-M_PI/2.0f);
 	//ROS_INFO("Sending goals");
 
 	goal.target_pose.header.stamp = ros::Time::now();

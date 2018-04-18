@@ -65,6 +65,6 @@ add_dependencies(shared_actions ${PROJECT_NAME}_gencfg)
 add_executable(keyboard_goal src/keyboard_goal.cpp)
 target_link_libraries(keyboard_goal cnbiros_shared_navigation ${catkin_LIBRARIES})
 
-#add_executable(simple_navigation_goal src/simple_navigation_goal.cpp)
-#target_link_libraries(simple_navigation_goal ${catkin_LIBRARIES})
+add_executable(simple_navigation_goal src/simple_navigation_goal.cpp)
+target_link_libraries(simple_navigation_goal ${catkin_LIBRARIES})
 
