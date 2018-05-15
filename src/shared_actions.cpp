@@ -6,9 +6,6 @@ int main(int argc, char **argv) {
 	
 	cnbiros::navigation::SharedActions sharedactions;
 
-	// Wait for Server
-	sharedactions.WaitForServer();	
-
 	sharedactions.Run();
 
 	return 0;

@@ -6,9 +6,9 @@
 namespace cnbiros {
     namespace navigation {
 
-SharedActions::SharedActions(void) : private_nh_("~") {
+SharedActions::SharedActions(void) : p_nh_("~") {
 
-    this->actioncln_ = nullptr;
+    this->a_client_ = nullptr;
     
 	// Initialize user command timer
 	this->init_command_timer(1.0f);
@@ -17,68 +17,70 @@ SharedActions::SharedActions(void) : private_nh_("~") {
 	this->init_update_rate(1.0f);
 	
 	// Dynamic reconfiguration
-	this->f_ = boost::bind(&SharedActions::reconfigure_callback, this, _1, _2);
-	this->cfgserver_.setCallback(this->f_);
+	this->n_dynreconfig_function_ = boost::bind(&SharedActions::reconfigure_callback, this, _1, _2);
+	this->n_dynreconfig_server_.setCallback(this->n_dynreconfig_function_);
 	
 	// Configure node
 	this->configure();
 
 	// Initialize subscribers
-    this->subrep_ = this->nh_.subscribe(this->reptopic_, 50, &SharedActions::on_receive_repellors, this);
-    this->subatt_ = this->nh_.subscribe(this->atttopic_, 50, &SharedActions::on_receive_attractors, this);
+    this->s_repellors_  = this->nh_.subscribe(this->t_repellors_, 1, &SharedActions::on_received_repellors, this);
+    this->s_attractors_ = this->nh_.subscribe(this->t_attractors_, 1, &SharedActions::on_received_attractors, this);
 
 	// Initialize move base client
-    this->actioncln_ = new MoveBaseClient(this->actionsrv_, true);
-
-	// Initialize clearcostmap service
-	this->srv_clearcostmap_ = this->nh_.serviceClient<std_srvs::Empty>("/move_base/clear_costmaps");
+    this->a_client_ = new MoveBaseClient(this->a_server_name_, true);
 
 	// Initialize start/stop service server
-	this->srv_state_toggle_ = this->private_nh_.advertiseService("toggle_state", &SharedActions::on_request_state_toggle, this);
-	
+	this->srv_state_toggle_ = this->p_nh_.advertiseService("toggle_state", &SharedActions::on_requested_state_toggle, this);
 
+	this->srv_set_goal_ = this->p_nh_.advertiseService("set_goal", &SharedActions::on_requested_set_goal, this);
+
+	// Initializer external goal reset area
+	this->p_reset_area_ = this->p_nh_.advertise<geometry_msgs::PolygonStamped>(this->t_reset_area_, 1);
+	
+	// Initialize odom subcriber
+	this->s_odom_ = this->nh_.subscribe(this->t_odom_, 1, &SharedActions::on_received_odometry, this);
+	
 	// If is running (autostart)
-	if(this->autostart_)
+	if(this->n_autostart_)
 		this->Start(); 
 }
 
 SharedActions::~SharedActions(void) {
-    if(this->actioncln_ == nullptr)
-	delete this->actioncln_;
+    if(this->a_client_ == nullptr)
+	delete this->a_client_;
 }
 
 
 bool SharedActions::configure(void) {
 
-	// Getting parameters
-	this->private_nh_.param<std::string>("repellors_source", this->reptopic_, "/repellors");
-	this->private_nh_.param<std::string>("attractors_source", this->atttopic_, "/attractors");
-	this->private_nh_.param<std::string>("action_server", this->actionsrv_, "move_base");
-	this->private_nh_.param<std::string>("frame_id", this->frame_id_, "base_link");
-	this->private_nh_.param<float>("robot_radius", this->robot_radius_, 0.52f);
-	this->private_nh_.param<float>("repellors_strength", this->repellors_strength_, 0.2f);
-	this->private_nh_.param<float>("repellors_decay", this->repellors_decay_, 0.5f);
-	this->private_nh_.param<float>("goal_max_distance", this->goal_max_distance_, 2.0f);
-	this->private_nh_.param<float>("goal_half_position", this->goal_half_position_, 1.5f);
-	this->private_nh_.param<float>("command_timeout", this->command_timeout_, 8.0f);
-	this->private_nh_.param<float>("update_rate", this->update_rate_, 2.0f);
-	this->private_nh_.param<bool>("autostart", this->autostart_, false);
-	this->private_nh_.param<bool>("on_place", this->on_place_, false);
-	this->private_nh_.param<bool>("enable_repellors", this->enable_repellors_, true);
-	this->private_nh_.param<bool>("enable_attractors", this->enable_attractors_, true);
+	// Default topics
+	this->t_repellors_			= "/repellors";
+	this->t_attractors_			= "/attractors"; 
+	this->t_odom_				= "/odom";
+	this->t_reset_area_			= "/visualize_reset_area";
 
-	// Dump parameters
-	ROS_INFO("SharedActions frame_id:				%s", this->frame_id_.c_str());
-	ROS_INFO("SharedActions repellors topic:		%s", this->reptopic_.c_str());
-	ROS_INFO("SharedActions attractors topic:		%s", this->atttopic_.c_str());
-	ROS_INFO("SharedActions action server name:		%s", this->actionsrv_.c_str());
-	ROS_INFO("SharedActions robot circumscribed radius:	%f", this->robot_radius_);
-	ROS_INFO("SharedActions repellors strength:		%f", this->repellors_strength_);
-	ROS_INFO("SharedActions repellors decay:		%f", this->repellors_decay_);
-	ROS_INFO("SharedActions goal max distance:		%f", this->goal_max_distance_);
-	ROS_INFO("SharedActions goal half position:		%f", this->goal_half_position_);
-	ROS_INFO("SharedActions command timeout:		%f", this->command_timeout_);
-	ROS_INFO("SharedActions update rate:			%f", this->update_rate_);
+	// Getting parameters
+	this->p_nh_.param<std::string>("action_server_name",	this->a_server_name_, "move_base");
+	this->p_nh_.param<std::string>("robot_base_frame",		this->robot_base_frame_, "base_link");
+	this->p_nh_.param<float>("robot_size", this->robot_size_, 0.52f);
+	
+	this->p_nh_.param<bool>("autostart",			this->n_autostart_, false);
+	this->p_nh_.param<bool>("enable_repellors",		this->n_enable_repellors_, true);
+	this->p_nh_.param<bool>("enable_attractors",	this->n_enable_attractors_, true);
+	this->p_nh_.param<float>("update_rate",			this->n_update_rate_, 10.0f);
+	this->p_nh_.param<float>("command_timeout",		this->n_command_timeout_, 8.0f);
+	
+	this->p_nh_.param<float>("repellors_strength",	this->sa_repellors_strength_, 0.5f);
+	this->p_nh_.param<float>("repellors_decay",		this->sa_repellors_decay_, 1.0f);
+	this->p_nh_.param<float>("repellors_occupancy", this->sa_repellors_occupancy_, 1.0f);
+	this->p_nh_.param<float>("distance_slope",		this->sa_distance_slope_, 1.3f);
+	this->p_nh_.param<float>("distance_max",		this->sa_distance_max_, 2.0f);
+	this->p_nh_.param<float>("distance_zero",		this->sa_distance_zero_, 1.2f);
+	this->p_nh_.param<float>("reset_radius",		this->sa_reset_radius_, 1.4f);
+
+	// Create reset area 
+	this->m_reset_area_ = this->get_reset_area(this->sa_reset_radius_);	
 
 	// Initialize to false availability of repellors_data
 	this->is_data_available_ = false;
@@ -89,21 +91,71 @@ bool SharedActions::configure(void) {
 	return true;
 }
 
+void SharedActions::reconfigure_callback(cnbiros_shared_navigation::SharedActionsConfig &config, 
+										uint32_t level) {
+
+
+	if(this->update_if_different(config.repellors_strength, this->sa_repellors_strength_))
+		ROS_WARN("Updated repellors strength to %f", this->sa_repellors_strength_);
+	
+	if(this->update_if_different(config.repellors_decay, this->sa_repellors_decay_))
+		ROS_WARN("Updated repellors decay to %f", this->sa_repellors_decay_);
+	
+	if(this->update_if_different(config.repellors_occupancy, this->sa_repellors_occupancy_))
+		ROS_WARN("Updated repellors occupancy to %f", this->sa_repellors_occupancy_);
+	
+	if(this->update_if_different(config.distance_slope, this->sa_distance_slope_))
+		ROS_WARN("Updated distance slope to %f", this->sa_distance_slope_);
+	
+	if(this->update_if_different(config.distance_max, this->sa_distance_max_))
+		ROS_WARN("Updated distance max to %f", this->sa_distance_max_);
+	
+	if(this->update_if_different(config.distance_zero, this->sa_distance_zero_))
+		ROS_WARN("Updated distance zero to %f", this->sa_distance_zero_);
+	
+	if(this->update_if_different(config.reset_radius, this->sa_reset_radius_)) {
+		this->m_reset_area_ = this->get_reset_area(this->sa_reset_radius_);	
+		ROS_WARN("Updated reset radius to %f", this->sa_reset_radius_);
+	}
+	
+	if(this->update_if_different(config.command_timeout, this->n_command_timeout_)) {
+		ROS_WARN("Updated command timeout to %f", this->n_command_timeout_);
+	}
+	
+	if(this->update_if_different(config.update_rate, this->n_update_rate_)) {
+		this->change_update_rate(this->n_update_rate_);	
+		ROS_WARN("Updated node rate to %f", this->n_update_rate_);
+	}
+
+}
+
+bool SharedActions::update_if_different(const float& first, float& second, float epsilon) {
+
+	bool is_different = false;
+	if(std::fabs(first - second) >= epsilon) {
+		second = first;
+		is_different = true;
+	}
+
+	return is_different;
+}
+
 bool SharedActions::IsRunning(void) {
 	return this->is_running_;
 }
 
-void SharedActions::WaitForServer(void) {
+SharedActions::State SharedActions::GetState(void) {
+	return this->n_state_;
+}
 
-    while(!(this->actioncln_->waitForServer(ros::Duration(1.0f)))) {
-		ROS_INFO_THROTTLE(5.0, "Waiting for %s action server to come up", this->actionsrv_.c_str());
-	}
-    ROS_INFO("%s action server connected", this->actionsrv_.c_str());
+bool SharedActions::IsConnected(void) {
+	return this->a_client_->isServerConnected();
 }
 
 void SharedActions::Start(void) {
 	if(this->IsRunning() == false) {
 		this->is_running_ = true;
+		this->n_state_ = SharedActions::State::Running;
 		ROS_WARN("SharedActions started");
 	}
 }
@@ -111,127 +163,211 @@ void SharedActions::Start(void) {
 void SharedActions::Stop(void) {
 	if(this->IsRunning() == true) {
 		this->is_running_ = false;
+		this->n_state_ = SharedActions::State::Stopped;
 		ROS_WARN("SharedActions stopped");
 	}
+}
+
+void SharedActions::Pause(void) {
+	if(this->IsRunning() == true) {
+		this->is_running_ = false;
+		this->n_state_ = SharedActions::State::Paused;
+		ROS_WARN("SharedActions paused");
+	}
+}
+
+void SharedActions::Quit(void) {
+	if(this->IsRunning() == true) {
+		this->is_running_ = false;
+		this->n_state_ = SharedActions::State::Quit;
+		ROS_WARN("SharedActions quit");
+	}
+}
+
+void SharedActions::Run(void) {
+   
+	actionlib::SimpleClientGoalState a_state(actionlib::SimpleClientGoalState::LOST);
+	std_srvs::Empty emptymsg;
+
+    while(this->nh_.ok()) {
+		
+		// Spin and sleep
+		ros::spinOnce();
+		this->n_rate_->sleep();
+
+		// Wait for connection of the action server
+		if(this->IsConnected() == false) {
+			ROS_WARN_THROTTLE(5.0f, "Waiting for %s action server to connect", this->a_server_name_.c_str());
+			continue;
+		}
+		ROS_WARN_ONCE("'%s' action server connected", this->a_server_name_.c_str());
+
+		// Publish reset area visualization
+		this->m_reset_area_.header.frame_id = this->robot_base_frame_;
+		this->m_reset_area_.header.stamp    = ros::Time::now();
+		this->p_reset_area_.publish(this->m_reset_area_);
+		
+		// Check if the node state is running
+		if(this->IsRunning() != true) {
+			ROS_WARN_THROTTLE(5, "SharedAction waiting to be started...");
+			continue;
+		}
+
+		// Start the main loop
+		
+		switch(this->GetState()) {
+			case SharedActions::State::Quit:
+				break;
+			case SharedActions::State::Stopped:
+				break;
+			case SharedActions::State::Paused:
+				break;
+			case SharedActions::State::Running:
+			
+				if(this->is_within_reset_area(this->sa_reset_radius_)) {
+					ROS_INFO("Inside goal area (%3.2f m).", this->sa_reset_radius_);
+					this->CancelGoal();
+					this->MakeGoal();
+					this->SendGoal();
+				}
+				
+				if(this->a_client_->getState() == actionlib::SimpleClientGoalState::ABORTED) {
+					ROS_WARN("Goal aborted");
+					this->CancelGoal();
+					this->MakeGoal();
+					this->SendGoal();
+
+				} else if(this->a_client_->getState() == actionlib::SimpleClientGoalState::LOST) {
+					ROS_WARN("Goal lost.");
+					this->CancelGoal();
+					this->MakeGoal();
+					this->SendGoal();
+				} else {
+				}
+
+				break;
+			default:
+				break;
+		}
+    }
+}
+
+float SharedActions::rad2deg(float radians) {
+	return radians*180.0f/M_PI;
+}
+
+float SharedActions::deg2rad(float degrees) {
+	return degrees*M_PI/180.0f;
 }
 
 void SharedActions::MakeGoal(void) {
 
 	float angle;
-	float repangle = 0.0f;
-	float attangle = 0.0f;
-	float radius = 0.0f;
+	float r_angle = 0.0f;
+	float a_angle = 0.0f;
+	float distance = 0.0f;
+	geometry_msgs::PointStamped m_goal_base_frame;
 
 	
 	// Compute orientation for repellors
-	if(this->enable_repellors_ == true) {
-		repangle  = this->goal_orientation_repellors(this->repellors_data_);
-		ROS_DEBUG_NAMED("sharedactions", "Map angle (heading): %f [deg]", repangle*180.0f/M_PI);
+	if(this->n_enable_repellors_ == true) {
+		r_angle  = this->get_angle_on_repellors(this->pr_repellors_);
+		ROS_DEBUG_NAMED("sharedactions", "Map angle (heading): %f [deg]", rad2deg(r_angle));
 	}
 	
 	// Compute orientation for attractors
-	if(this->enable_attractors_ == true) {
-		attangle = this->goal_orientation_attractors(this->attractors_data_);
-		ROS_DEBUG_NAMED("sharedactions", "Usr angle (heading): %f [deg]", attangle*180.0f/M_PI);
+	if(this->n_enable_attractors_ == true) {
+		a_angle = this->get_angle_on_attractors(this->pr_attractors_);
+		ROS_DEBUG_NAMED("sharedactions", "Usr angle (heading): %f [deg]", rad2deg(a_angle));
 	}
 	
-	angle = repangle + attangle;
+	angle = r_angle + a_angle;
 
 	// Limit the orientation to the front
-	angle = this->goal_orientation_limits(angle, -M_PI/2.0f, M_PI/2.0f);	
+	//angle = this->goal_orientation_limits(angle, -M_PI/2.0f, M_PI/2.0f);	
 	
 	// Compute position for computed angle (if repellors_data_ is available)
-	if(this->is_data_available_ == true && this->on_place_ == false) {
-		radius = this->goal_position_logistic(this->repellors_data_, angle);
+	if(this->is_data_available_ == true) {
+		distance = this->get_distance(this->pr_repellors_, angle);
 	}
 
 	// Rotate angle (standard coordinate frame conventions)	
 	angle = M_PI/2.0f + angle;
 
     // Make the goal given the computed angle and radius
-	this->goal_.target_pose.header.frame_id		= this->frame_id_;
-    this->goal_.target_pose.pose.position.y		= -radius*cos(angle);
-    this->goal_.target_pose.pose.position.x		= radius*sin(angle);
-    this->goal_.target_pose.pose.orientation	= tf::createQuaternionMsgFromYaw(angle-M_PI/2.0f);
-    this->goal_.target_pose.header.stamp		= ros::Time::now();
-    	
-	//ROS_DEBUG_NAMED("sharedactions", "New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
-	ROS_INFO("New goal at %f [cm] / %f [deg]", radius, angle*180.0f/M_PI);
+	this->m_goal_.target_pose.header.frame_id		= this->robot_base_frame_;
+    this->m_goal_.target_pose.pose.position.y		= -distance*cos(angle);
+    this->m_goal_.target_pose.pose.position.x		= distance*sin(angle);
+    this->m_goal_.target_pose.pose.orientation		= tf::createQuaternionMsgFromYaw(angle-M_PI/2.0f);
+    this->m_goal_.target_pose.header.stamp			= ros::Time::now();
+
+	// Extract the current goal point from the goal message (in the robot frame)
+	m_goal_base_frame.header = this->m_goal_.target_pose.header;
+	m_goal_base_frame.point  = this->m_goal_.target_pose.pose.position;
+	
+	// Transform current goal point in odom frame
+	try {
+		this->n_listener_.waitForTransform("odom", this->robot_base_frame_, 
+										   m_goal_base_frame.header.stamp, ros::Duration(10.0) );
+		this->n_listener_.transformPoint("odom", m_goal_base_frame, this->m_goal_point_);
+	} catch (tf::TransformException &ex) {
+		ROS_ERROR("%s", ex.what());
+	}
 }
 
 
 void SharedActions::SendGoal(void) {
 
-	if(this->actioncln_->isServerConnected() == false) {
-    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
-    } else {
-    	this->actioncln_->sendGoal(this->goal_);
+	if(this->IsConnected() == false) {
+    	ROS_WARN("'%s' action server is disconnected. Nothing to do.", this->a_server_name_.c_str());
+		return;
 	}
+	
+	/*
+	this->a_client_->sendGoal(this->m_goal_, 
+							   MoveBaseClient::SimpleDoneCallback(), 
+							   MoveBaseClient::SimpleActiveCallback(), 
+							   boost::bind(&SharedActions::feedbackCb, this, _1));
+							   */
+	this->a_client_->sendGoal(this->m_goal_);
+
+	ROS_INFO("Sent new goal at (%4.2f, %4.2f) [m]", this->m_goal_.target_pose.pose.position.x, 
+													this->m_goal_.target_pose.pose.position.y);
 }
 
 void SharedActions::CancelGoal(void) {
 
-	if(this->actioncln_->isServerConnected() == false) {
-    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->actionsrv_.c_str());
-    } else {
-		this->actioncln_->cancelGoal();
+	if(this->IsConnected() == false) {
+    	ROS_WARN("%s action server is disconnected. Nothing to do.", this->a_server_name_.c_str());
+		return;
 	}
-}
-
-void SharedActions::Run(void) {
-   
-	actionlib::SimpleClientGoalState state(actionlib::SimpleClientGoalState::LOST);
-	std_srvs::Empty emptymsg;
-
-    while(this->nh_.ok()) {
-		
-		ros::spinOnce();
-		this->rate_->sleep();
-
-		if(this->is_running_ != true) {
-			ROS_WARN_THROTTLE(5, "SharedAction waiting to be started...");
-			continue;
-		}
-
-		if(this->actioncln_->isServerConnected()) {
-			
-			state = this->actioncln_->getState();
-		
-			// Check the current status
-			// If it is ABORTED or LOST, then clear costmap
-			if((state == actionlib::SimpleClientGoalState::ABORTED) ||
-			   (state == actionlib::SimpleClientGoalState::LOST) ) {
-				ROS_WARN("Goal aborted/lost. Clearing costmap...");
-
-				if(this->srv_clearcostmap_.call(emptymsg)) {
-					ROS_WARN("Costmap cleared");
-				} else {
-					ROS_ERROR("Failed to request costmap clearing");
-				}
-			}
-
-			// Force a new goal and cancel the previous ones (semi-autonomous
-			// behaviour).
-			// The new goal is based on the last costmap received and on the
-			// last user command received (if exists)
-			this->MakeGoal();
-			this->CancelGoal();
-			this->SendGoal();
-		}
-    }
-
+	
+	this->a_client_->cancelGoal();
 }
 
 
-float SharedActions::goal_orientation_repellors(ProximitySector& sectors) {
+bool SharedActions::is_projection_inside(float distance, float angle, float radius) {
+
+	float projection;
+	bool result = false;
+
+	projection = std::fabs(distance*cos(angle)); 
+
+	if(projection <= 2.0f*radius)
+		result = true;
+
+	return result;
+}
+
+float SharedActions::get_angle_on_repellors(ProximitySector& sectors) {
 
 	ProximitySectorConstIt it;
     float sector_step;
-    float cradius, cangle, csigma, clambda;
+    float cdistance, cangle, csigma, clambda;
     float hangle = 0.0f;
     float w = 0.0f;
 
-	float robotsize = 2.0f*(this->robot_radius_);
+	//float robotsize = 2.0f*(this->robot_radius_);
 
     sector_step	= sectors.GetStep();
 
@@ -240,20 +376,25 @@ float SharedActions::goal_orientation_repellors(ProximitySector& sectors) {
 		if(std::isinf((*it)) == true)
 		    continue;
 
-		cradius = sectors.GetRadius(it);
+		//cdistance = sectors.GetRadius(it);
+		cdistance = sectors.GetRadius(it);
 		cangle  = sectors.GetAngle(it);
 
-		clambda = this->repellors_strength_*exp(-(cradius/this->repellors_decay_));
-		csigma  = std::atan(std::tan(sector_step/2.0f) + 
-			           robotsize/(robotsize + cradius));
+		// Check if the repellors is inside the robot radius. If not, skip it.
+		//if(this->is_projection_inside(cdistance, cangle + M_PI/2.0f, this->robot_radius_) == false)
+		//	continue;
+
+		clambda = this->sa_repellors_strength_*exp(-(cdistance/this->sa_repellors_decay_));
+		csigma  = std::atan(std::tan(sector_step/2.0f) + this->robot_size_/(this->robot_size_ + cdistance)) 
+				  + this->sa_repellors_occupancy_;
 		
-		w += clambda*(hangle-cangle)*exp(-(std::pow(hangle - cangle, 2))/(2.0f*pow(csigma, 2)));
+		w += clambda*(hangle-cangle)*std::exp(-(std::pow(hangle - cangle, 2))/(2.0f*pow(csigma, 2)));
     }
 
     return w;
 }
 
-float SharedActions::goal_orientation_attractors(ProximitySector& sectors) {
+float SharedActions::get_angle_on_attractors(ProximitySector& sectors) {
 
 	ProximitySectorConstIt it;
     float w = 0.0f;
@@ -268,7 +409,7 @@ float SharedActions::goal_orientation_attractors(ProximitySector& sectors) {
     return w;
 }
 
-float SharedActions::goal_orientation_limits(float angle, float minangle, float maxangle) {
+float SharedActions::get_angle_limits(float angle, float minangle, float maxangle) {
 
 	float langle;
 
@@ -282,142 +423,63 @@ float SharedActions::goal_orientation_limits(float angle, float minangle, float 
 	return langle;
 }
 
-float SharedActions::goal_position_logistic(ProximitySector& sectors, float wescape) {
 
-	//float cvalue = std::numeric_limits<float>::infinity();
+float SharedActions::get_distance(ProximitySector& sectors, float wescape) {
+
 	ProximitySectorConstIt it;
-	float goaldistance;
-	std::vector<float> colliding_distances;
-	std::vector<float> colliding_angles;
+	float obstacle_distance;
+	float distance;
 
-    float MaxPosition = this->goal_max_distance_;
-	float MinPosition = SHAREDACTIONS_LOGISTIC_MINDISTANCE;
-	float MinDistance = this->robot_radius_;
-	float HalfPosition = this->goal_half_position_;
-	float Slope;
-
-	float cangle, cdistance, cprojection;
-	float closest_distance = MaxPosition;
-	float closest_angle = 0.0f;
-	float cvalue;
-
-	for(it=sectors.Begin(); it!=sectors.End(); ++it) {
-
-		if(std::isinf((*it)) == true)
-		    continue;
-
-		cdistance	= sectors.GetRadius(it);
-		cangle		= sectors.GetAngle(it) + M_PI/2.0f;
-		cprojection = std::fabs(cdistance*cos(cangle)); 
-		
-		// Check if the projection is inside the radius. In that case, store the
-		// distance
-		if(cprojection <= this->robot_radius_) {
-			colliding_distances.push_back(cdistance);
-			colliding_angles.push_back(cangle-M_PI/2.0f);
-		}
+	try {
+		obstacle_distance = sectors.At(wescape);
+	} catch (std::runtime_error e) {
+		ROS_ERROR("Error: %s", e.what());
 	}
 
-	auto i = 0;
-	for(auto itd=colliding_distances.begin(); itd!=colliding_distances.end(); ++itd) {
-		if(closest_distance < (*itd)) {
-			closest_distance = (*itd);
-			closest_angle    = colliding_angles.at(i);
-		}
-		i++;
-	}
-	ROS_INFO("Closest obstacle at %f [m] and %f [deg]", closest_distance, closest_angle*180.0f/M_PI);
-
-	// Using the closest distance in the logistic regression
-	cvalue = closest_distance;
-
-	//for(auto it=sectors.Begin(); it!=sectors.End(); ++it)
-	//	cvalue = std::min(cvalue, (*it));
-
-	//try {
-	//	cvalue = sectors.At(wescape);
-	//} catch (std::runtime_error e) {
-	//	ROS_ERROR("Error: %s", e.what());
-	//}
-	
-	Slope = -std::log((MaxPosition/MinPosition) - 1.0f)*(1.0f/(MinDistance - HalfPosition));
-	
-	if(std::isinf(cvalue)) {
-		goaldistance = MaxPosition;
+	if(std::isinf(obstacle_distance)) {
+		distance = this->sa_distance_max_;
 	} else {
-		goaldistance = MaxPosition/(1.0f + std::exp(-Slope*(cvalue-HalfPosition)));
+		distance = (obstacle_distance)*this->sa_distance_slope_ 
+					- this->sa_distance_slope_*this->sa_distance_zero_;
 	}
 
-	return goaldistance;
+	if(distance > this->sa_distance_max_)
+		distance = this->sa_distance_max_;
 
-}
 
-void SharedActions::reconfigure_callback(cnbiros_shared_navigation::SharedActionsConfig &config, 
-										uint32_t level) {
-
-	if(std::fabs(config.param_repellors_strength - this->repellors_strength_) > 0.00001f) {
-		this->repellors_strength_ = config.param_repellors_strength;
-		ROS_WARN("Updated repellors strength to %f", this->repellors_strength_);
-	}
-	
-	if(std::fabs(config.param_repellors_decay - this->repellors_decay_) > 0.00001f) {
-		this->repellors_decay_ = config.param_repellors_decay;
-		ROS_WARN("Updated repellors decay to %f", this->repellors_decay_);
-	}
-	
-	if(std::fabs(config.param_command_timeout - this->command_timeout_) > 0.00001f) {
-		this->command_timeout_ = config.param_command_timeout;
-		ROS_WARN("Updated user's command timeout to %f", this->command_timeout_);
-	}
-	
-	if(std::fabs(config.param_goal_max_distance - this->goal_max_distance_) > 0.00001f) {
-		this->goal_max_distance_ = config.param_goal_max_distance;
-		ROS_WARN("Updated goal max distance to %f", this->goal_max_distance_);
-	}
-	
-	if(std::fabs(config.param_goal_half_position - this->goal_half_position_) > 0.00001f) {
-		this->goal_half_position_ = config.param_goal_half_position;
-		ROS_WARN("Updated goal half position to %f", this->goal_half_position_);
-	}
-	
-	if(std::fabs(config.param_update_rate - this->update_rate_) > 0.00001f) {
-		this->update_rate_ = config.param_update_rate;
-		this->change_update_rate(this->update_rate_);
-		ROS_WARN("Updated rate to %f", this->update_rate_);
-	}
+	return distance;
 
 }
 
 void SharedActions::init_command_timer(float timeout) {
 
-	this->command_timer_ = this->nh_.createTimer(
-						   ros::Duration(this->command_timeout_), 
-						   &SharedActions::on_reset_command_user,
-						   this);
-	ROS_WARN("Command timer initialize with %f timeout", this->command_timeout_);
+	this->n_command_timer_ = this->nh_.createTimer(ros::Duration(this->n_command_timeout_), 
+												   &SharedActions::on_reset_command_user,
+												   this);
+	ROS_WARN("Command timer initialize with %f timeout", this->n_command_timeout_);
 }
 
 
 void SharedActions::init_update_rate(float rate) {
 
-	this->rate_ = new ros::Rate(rate);
+	this->n_rate_ = new ros::Rate(rate);
 }
 
 void SharedActions::change_update_rate(float rate) {
-	delete this->rate_;
+	delete this->n_rate_;
 	init_update_rate(rate);
 }
 
 void SharedActions::on_reset_command_user(const ros::TimerEvent& event) {
 
 	ROS_WARN("User command validity expired");
-	this->attractors_data_.Reset();
-
-	this->command_timer_.stop();
+	this->pr_attractors_.Reset();
+	this->CancelGoal();
+	this->n_command_timer_.stop();
 }
 
-bool SharedActions::on_request_state_toggle(std_srvs::Trigger::Request& req,
-											std_srvs::Trigger::Response& res) {
+bool SharedActions::on_requested_state_toggle(std_srvs::Trigger::Request& req,
+											  std_srvs::Trigger::Response& res) {
 
 	if(this->IsRunning() == true) {
 		this->Stop();
@@ -425,45 +487,100 @@ bool SharedActions::on_request_state_toggle(std_srvs::Trigger::Request& req,
 	} else {
 		this->Start();
 		res.message = "Shared action is running.";
+		this->CancelGoal();
+		this->MakeGoal();
+		this->SendGoal();
 	}
 	res.success = true;
 
 	return res.success;
 }
 
+bool SharedActions::on_requested_set_goal(std_srvs::Empty::Request& req,
+										std_srvs::Empty::Response& res) {
 
-void SharedActions::on_receive_repellors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {
+	bool result = false;
+
+	if(this->IsRunning() == true) {
+		this->CancelGoal();
+		this->MakeGoal();
+		this->SendGoal();
+		result = true;
+	}
+	
+	return result;
+}
+
+
+void SharedActions::on_received_repellors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {
 
 	// Set true the availability of repellors data (used for first iteration)
 	this->is_data_available_ = true;
 	
 	// Convert and store repellor data
-	if(ProximitySectorConverter::FromMessage(data, this->repellors_data_) == false) {
+	if(ProximitySectorConverter::FromMessage(data, this->pr_repellors_) == false) {
 		ROS_ERROR("Cannot convert repellor proximity sector message");
 	}
-
-	//this->repellors_data_.Dump();
 }
 
-void SharedActions::on_receive_attractors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {
+void SharedActions::on_received_attractors(const cnbiros_shared_navigation::ProximitySectorMsg& data) {
 
 	// Convert and store attractor data
-	if(ProximitySectorConverter::FromMessage(data, this->attractors_data_) == false) {
+	if(ProximitySectorConverter::FromMessage(data, this->pr_attractors_) == false) {
 		ROS_ERROR("Cannot convert attractors proximity sector message");
 	}
 
-	if(this->is_running_ == false)
+	if(this->IsRunning() == false)
 		return;
 
 	// Update the timer for command timeout
-	this->command_timer_.setPeriod(ros::Duration(this->command_timeout_));
-	this->command_timer_.start();
-
-	//// Force new goal immediately
-	//this->MakeGoal();
-	//this->CancelGoal();
-	//this->SendGoal();
+	this->n_command_timer_.setPeriod(ros::Duration(this->n_command_timeout_));
+	this->n_command_timer_.start();
 }
+
+
+geometry_msgs::PolygonStamped SharedActions::get_reset_area(float radius) {
+
+	geometry_msgs::PolygonStamped area;
+	geometry_msgs::Point32 point;
+	unsigned int npoints = 100;
+
+	for(auto i=0; i<npoints; i++) {
+		point.x = radius*cos(2.0f*M_PI*i/(float)npoints);
+		point.y = radius*sin(2.0f*M_PI*i/(float)npoints);
+		point.z = 0.0f;
+
+		area.polygon.points.push_back(point);
+	}
+
+	return area;
+}
+
+void SharedActions::on_received_odometry(const nav_msgs::Odometry& data) {
+	this->m_odom_ = data;
+}
+
+bool SharedActions::is_within_reset_area(float radius) {
+
+	float distance;
+	bool result = false;
+
+	geometry_msgs::Point pose;
+	geometry_msgs::Point goal;
+
+	pose = this->m_odom_.pose.pose.position;
+	goal = this->m_goal_point_.point;
+
+	distance = std::hypot((pose.x - goal.x), (pose.y - goal.y));
+
+	if(distance <= radius)
+		result = true;
+
+	ROS_INFO("Distance to next goal: %f", distance);
+
+	return result;
+}
+
     }
 }
 
