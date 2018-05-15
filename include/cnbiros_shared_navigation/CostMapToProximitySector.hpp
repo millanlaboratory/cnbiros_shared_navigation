@@ -6,6 +6,7 @@
 #include <tf/transform_listener.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <dynamic_reconfigure/server.h>
+#include <sensor_msgs/LaserScan.h>
 
 // Package includes
 #include "cnbiros_shared_navigation/ProximitySector.hpp"
@@ -34,8 +35,11 @@ class CostMapToProximitySector {
 		
 		ros::Subscriber	sub_;
 		ros::Publisher	pub_;
+		ros::Publisher	vpub_;
 		std::string		stopic_;
 		std::string 	ptopic_;
+		std::string		vtopic_;
+		sensor_msgs::LaserScan	vsector_;
 
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::CostMapSectorConfig> cfgserver_;
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::CostMapSectorConfig>::CallbackType f_;
