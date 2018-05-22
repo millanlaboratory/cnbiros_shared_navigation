@@ -149,9 +149,11 @@ class SharedActions {
 		float	sa_repellors_strength_;
 		float	sa_repellors_decay_;
 		float	sa_repellors_occupancy_;
-		float	sa_distance_slope_;
+		//float	sa_distance_slope_;
 		float	sa_distance_max_;
-		float	sa_distance_zero_;
+		//float	sa_distance_zero_;
+		float	sa_backward_limit_;
+		float	sa_obstacle_padding_;
 		float	sa_reset_radius_;
 
 		// General boolean states

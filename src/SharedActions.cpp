@@ -71,13 +71,15 @@ bool SharedActions::configure(void) {
 	this->p_nh_.param<float>("update_rate",			this->n_update_rate_, 10.0f);
 	this->p_nh_.param<float>("command_timeout",		this->n_command_timeout_, 8.0f);
 	
-	this->p_nh_.param<float>("repellors_strength",	this->sa_repellors_strength_, 0.5f);
-	this->p_nh_.param<float>("repellors_decay",		this->sa_repellors_decay_, 1.0f);
-	this->p_nh_.param<float>("repellors_occupancy", this->sa_repellors_occupancy_, 1.0f);
-	this->p_nh_.param<float>("distance_slope",		this->sa_distance_slope_, 1.3f);
+	this->p_nh_.param<float>("repellors_strength",	this->sa_repellors_strength_, 0.7f);
+	this->p_nh_.param<float>("repellors_decay",		this->sa_repellors_decay_, 1.2f);
+	this->p_nh_.param<float>("repellors_occupancy", this->sa_repellors_occupancy_, 0.5f);
+	//this->p_nh_.param<float>("distance_slope",		this->sa_distance_slope_, 1.3f);
 	this->p_nh_.param<float>("distance_max",		this->sa_distance_max_, 2.0f);
-	this->p_nh_.param<float>("distance_zero",		this->sa_distance_zero_, 1.2f);
-	this->p_nh_.param<float>("reset_radius",		this->sa_reset_radius_, 1.4f);
+	this->p_nh_.param<float>("obstacle_padding",	this->sa_obstacle_padding_, 0.9f);
+	this->p_nh_.param<float>("backward_limit",	    this->sa_backward_limit_, 1.0f);
+	//this->p_nh_.param<float>("distance_zero",		this->sa_distance_zero_, 1.5f);
+	this->p_nh_.param<float>("reset_radius",		this->sa_reset_radius_, 1.8f);
 
 	// Create reset area 
 	this->m_reset_area_ = this->get_reset_area(this->sa_reset_radius_);	
@@ -104,14 +106,20 @@ void SharedActions::reconfigure_callback(cnbiros_shared_navigation::SharedAction
 	if(this->update_if_different(config.repellors_occupancy, this->sa_repellors_occupancy_))
 		ROS_WARN("Updated repellors occupancy to %f", this->sa_repellors_occupancy_);
 	
-	if(this->update_if_different(config.distance_slope, this->sa_distance_slope_))
-		ROS_WARN("Updated distance slope to %f", this->sa_distance_slope_);
+	//if(this->update_if_different(config.distance_slope, this->sa_distance_slope_))
+	//	ROS_WARN("Updated distance slope to %f", this->sa_distance_slope_);
+	
+	if(this->update_if_different(config.obstacle_padding, this->sa_obstacle_padding_))
+		ROS_WARN("Updated obstacle padding to %f", this->sa_obstacle_padding_);
 	
 	if(this->update_if_different(config.distance_max, this->sa_distance_max_))
 		ROS_WARN("Updated distance max to %f", this->sa_distance_max_);
 	
-	if(this->update_if_different(config.distance_zero, this->sa_distance_zero_))
-		ROS_WARN("Updated distance zero to %f", this->sa_distance_zero_);
+	//if(this->update_if_different(config.distance_zero, this->sa_distance_zero_))
+	// 	ROS_WARN("Updated distance zero to %f", this->sa_distance_zero_);
+	
+	if(this->update_if_different(config.backward_limit, this->sa_backward_limit_))
+		ROS_WARN("Updated backward limit to %f", this->sa_backward_limit_);
 	
 	if(this->update_if_different(config.reset_radius, this->sa_reset_radius_)) {
 		this->m_reset_area_ = this->get_reset_area(this->sa_reset_radius_);	
@@ -225,8 +233,8 @@ void SharedActions::Run(void) {
 			case SharedActions::State::Running:
 			
 				if(this->is_within_reset_area(this->sa_reset_radius_)) {
-					ROS_INFO("Inside goal area (%3.2f m).", this->sa_reset_radius_);
-					this->CancelGoal();
+					//ROS_INFO("Inside goal area (%3.2f m).", this->sa_reset_radius_);
+					//this->CancelGoal();
 					this->MakeGoal();
 					this->SendGoal();
 				}
@@ -284,7 +292,7 @@ void SharedActions::MakeGoal(void) {
 	angle = r_angle + a_angle;
 
 	// Limit the orientation to the front
-	//angle = this->goal_orientation_limits(angle, -M_PI/2.0f, M_PI/2.0f);	
+	angle = this->get_angle_limits(angle, -M_PI/2.0f, M_PI/2.0f);	
 	
 	// Compute position for computed angle (if repellors_data_ is available)
 	if(this->is_data_available_ == true) {
@@ -292,13 +300,19 @@ void SharedActions::MakeGoal(void) {
 	}
 
 	// Rotate angle (standard coordinate frame conventions)	
+	ROS_DEBUG_NAMED("goal_angle", "[SharedActions] - Goal angle (sectors): %3.2f", this->rad2deg(angle));
 	angle = M_PI/2.0f + angle;
+	ROS_DEBUG_NAMED("goal_angle", "[SharedActions] - Goal angle (standard frame): %3.2f", this->rad2deg(angle));
 
     // Make the goal given the computed angle and radius
 	this->m_goal_.target_pose.header.frame_id		= this->robot_base_frame_;
-    this->m_goal_.target_pose.pose.position.y		= -distance*cos(angle);
     this->m_goal_.target_pose.pose.position.x		= distance*sin(angle);
-    this->m_goal_.target_pose.pose.orientation		= tf::createQuaternionMsgFromYaw(angle-M_PI/2.0f);
+    this->m_goal_.target_pose.pose.position.y		= -distance*cos(angle);
+    this->m_goal_.target_pose.pose.orientation		= tf::createQuaternionMsgFromYaw(angle-M_PI/2.0);
+    //this->m_goal_.target_pose.pose.orientation.x	= 0;
+    //this->m_goal_.target_pose.pose.orientation.y	= 0;
+    //this->m_goal_.target_pose.pose.orientation.z	= 0;
+    //this->m_goal_.target_pose.pose.orientation.w	= 1;
     this->m_goal_.target_pose.header.stamp			= ros::Time::now();
 
 	// Extract the current goal point from the goal message (in the robot frame)
@@ -331,8 +345,8 @@ void SharedActions::SendGoal(void) {
 							   */
 	this->a_client_->sendGoal(this->m_goal_);
 
-	ROS_INFO("Sent new goal at (%4.2f, %4.2f) [m]", this->m_goal_.target_pose.pose.position.x, 
-													this->m_goal_.target_pose.pose.position.y);
+	ROS_DEBUG_NAMED("goal_position", "Sent new goal at (%4.2f, %4.2f) [m]", 
+					this->m_goal_.target_pose.pose.position.x, this->m_goal_.target_pose.pose.position.y);
 }
 
 void SharedActions::CancelGoal(void) {
@@ -429,6 +443,11 @@ float SharedActions::get_distance(ProximitySector& sectors, float wescape) {
 	ProximitySectorConstIt it;
 	float obstacle_distance;
 	float distance;
+	float m, b;
+	float x1 = 1.0f;
+	float y1 = x1 - this->sa_obstacle_padding_;
+	float x2 = 2.0f;
+	float y2 = x2 - this->sa_obstacle_padding_;
 
 	try {
 		obstacle_distance = sectors.At(wescape);
@@ -438,14 +457,25 @@ float SharedActions::get_distance(ProximitySector& sectors, float wescape) {
 
 	if(std::isinf(obstacle_distance)) {
 		distance = this->sa_distance_max_;
+	} else if (obstacle_distance < this->sa_backward_limit_) {
+		distance = -0.5f;
 	} else {
-		distance = (obstacle_distance)*this->sa_distance_slope_ 
-					- this->sa_distance_slope_*this->sa_distance_zero_;
+
+		m = (y2 - y1)/(x2 - x1);
+		b = y1 - m*x1;
+
+		//m = (this->sa_distance_max_)/(this->sa_distance_max_ - this->sa_distance_zero_);
+		//b = -m*this->sa_distance_zero_;
+
+		distance = m*obstacle_distance + b;
+		//distance = (obstacle_distance)*this->sa_distance_slope_ 
+		//			- this->sa_distance_slope_*this->sa_distance_zero_;
 	}
 
 	if(distance > this->sa_distance_max_)
 		distance = this->sa_distance_max_;
 
+	ROS_INFO("Distance: %f\n", distance);
 
 	return distance;
 
@@ -576,7 +606,7 @@ bool SharedActions::is_within_reset_area(float radius) {
 	if(distance <= radius)
 		result = true;
 
-	ROS_INFO("Distance to next goal: %f", distance);
+	//ROS_INFO("Distance to next goal: %f", distance);
 
 	return result;
 }
