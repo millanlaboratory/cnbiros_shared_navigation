@@ -13,6 +13,7 @@ generate_dynamic_reconfigure_options(
 	cfg/CostMapSector.cfg
 	cfg/PointSector.cfg
 	cfg/SharedActions.cfg
+	cfg/SharedDynamics.cfg
   #...
 )
 
@@ -45,7 +46,8 @@ add_library(cnbiros_shared_navigation
 			src/ProximitySectorConverter.cpp
 			src/CostMapToProximitySector.cpp
 			src/PointToProximitySector.cpp
-			src/SharedActions.cpp)
+			src/SharedActions.cpp
+			src/SharedDynamics.cpp)
 add_dependencies(cnbiros_shared_navigation cnbiros_shared_navigation_generate_messages_cpp)
 target_link_libraries(cnbiros_shared_navigation ${catkin_LIBRARIES})
 
@@ -61,6 +63,10 @@ add_dependencies(point_to_proximitysector ${PROJECT_NAME}_gencfg)
 add_executable(shared_actions src/shared_actions.cpp)
 target_link_libraries(shared_actions cnbiros_shared_navigation ${catkin_LIBRARIES})
 add_dependencies(shared_actions ${PROJECT_NAME}_gencfg)
+
+add_executable(shared_dynamics src/shared_dynamics.cpp)
+target_link_libraries(shared_dynamics cnbiros_shared_navigation ${catkin_LIBRARIES})
+add_dependencies(shared_dynamics ${PROJECT_NAME}_gencfg)
 
 add_executable(keyboard_goal src/keyboard_goal.cpp)
 target_link_libraries(keyboard_goal cnbiros_shared_navigation ${catkin_LIBRARIES})
