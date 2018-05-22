@@ -17,7 +17,7 @@ CostMapToProximitySector::CostMapToProximitySector(void) : private_nh_("~") {
 
     // Initialize subscriber and publisher
     this->sub_ = this->nh_.subscribe(this->stopic_, 1, &CostMapToProximitySector::on_received_costmap, this);
-    this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximitySectorMsg>(this->ptopic_, 1000);
+    this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximitySectorMsg>(this->ptopic_, 1);
 	this->vpub_ = this->nh_.advertise<sensor_msgs::LaserScan>(this->vtopic_, 1);
 
 }
