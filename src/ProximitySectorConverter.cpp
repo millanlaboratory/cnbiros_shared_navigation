@@ -114,6 +114,55 @@ bool ProximitySectorConverter::FromMessage(const cnbiros_shared_navigation::Prox
 	return true;
 }
 
+
+bool ProximitySectorConverter::FromLaserScan(const sensor_msgs::LaserScan& msg, 
+											tf::TransformListener* listener,
+											ProximitySector& sectors) {
+
+    geometry_msgs::PointStamped scan_point;
+    geometry_msgs::PointStamped sector_point;
+	
+	float scan_angle;
+	float scan_inc;
+
+	sectors.Reset();
+	
+	scan_angle = msg.angle_min;
+	scan_inc   = msg.angle_increment;
+	for(auto it=msg.ranges.begin(); it!=msg.ranges.end(); ++it) {
+		printf("cangle = %f\n", scan_angle);
+		scan_point.header.frame_id = msg.header.frame_id;
+		scan_point.point.x = (*it)*std::sin(scan_angle);
+		scan_point.point.y = (*it)*std::cos(scan_angle);
+		scan_point.point.z = 0.0f;
+		scan_angle += scan_inc;
+
+		if(std::isinf( (*it) ) == true)
+			continue;
+
+		try {
+			listener->waitForTransform(sectors.GetFrameId(), scan_point.header.frame_id,
+									   ros::Time(0), ros::Duration(10.0) );
+			listener->transformPoint(sectors.GetFrameId(), scan_point, sector_point);
+		} catch (tf::TransformException& ex) {
+			ROS_ERROR("%s", ex.what());
+			continue;
+		}
+
+		try {
+			sectors.SetByCartesian(sector_point.point.x, -sector_point.point.y);	
+		} catch (std::out_of_range& ex) {
+			printf("%s\n", ex.what());
+			printf("Sector point: (%f, %f)\n", sector_point.point.x, -sector_point.point.y);
+			printf("Radius: %f\n", (*it));
+		}
+
+	}
+
+	return true;
+
+}
+
 bool ProximitySectorConverter::ToMessage(const ProximitySector& sectors, 
 							cnbiros_shared_navigation::ProximitySectorMsg& msg) {
 

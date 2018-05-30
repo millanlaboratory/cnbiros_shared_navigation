@@ -6,6 +6,7 @@
 #include <tf/transform_listener.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <geometry_msgs/PointStamped.h>
+#include <sensor_msgs/LaserScan.h>
 #include <grid_map_ros/grid_map_ros.hpp>
 
 // Package include
@@ -56,6 +57,12 @@ class ProximitySectorConverter {
 		static bool FromPoint(const geometry_msgs::PointStamped& msg, 
 							  tf::TransformListener* listener, 
 							  ProximitySector& sectors);
+
+
+		static bool FromLaserScan(const sensor_msgs::LaserScan& msg, 
+								  tf::TransformListener* listener,
+								  ProximitySector& sectors);
+								
 
 		/*!
 		 * Converts a ProximitySector object in a ProximitySector message.
