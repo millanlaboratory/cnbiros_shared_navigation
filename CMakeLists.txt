@@ -13,6 +13,8 @@ generate_dynamic_reconfigure_options(
 	cfg/CostMapSector.cfg
 	cfg/PointSector.cfg
 	cfg/LaserScanSector.cfg
+	cfg/LaserScanGrid.cfg
+	cfg/PointGrid.cfg
 	cfg/SharedActions.cfg
 	cfg/SharedDynamics.cfg
   #...
@@ -21,6 +23,7 @@ generate_dynamic_reconfigure_options(
 add_message_files(
 	FILES
 	ProximitySectorMsg.msg
+	ProximityGridMsg.msg
 )
 
 generate_messages(
@@ -48,6 +51,11 @@ add_library(cnbiros_shared_navigation
 			src/CostMapToProximitySector.cpp
 			src/PointToProximitySector.cpp
 			src/LaserScanToProximitySector.cpp
+			src/ProximityGrid.cpp
+			src/ProximityGridConverter.cpp
+			src/LaserScanToProximityGrid.cpp
+			src/PointToProximityGrid.cpp
+			src/ProximityGridVisualizer.cpp
 			src/SharedActions.cpp
 			src/SharedDynamics.cpp)
 add_dependencies(cnbiros_shared_navigation cnbiros_shared_navigation_generate_messages_cpp)
@@ -65,6 +73,17 @@ add_dependencies(point_to_proximitysector ${PROJECT_NAME}_gencfg)
 add_executable(laserscan_to_proximitysector src/laserscan_to_proximitysector.cpp)
 target_link_libraries(laserscan_to_proximitysector cnbiros_shared_navigation ${catkin_LIBRARIES})
 add_dependencies(laserscan_to_proximitysector ${PROJECT_NAME}_gencfg)
+
+add_executable(laserscan_to_proximitygrid src/laserscan_to_proximitygrid.cpp)
+target_link_libraries(laserscan_to_proximitygrid cnbiros_shared_navigation ${catkin_LIBRARIES})
+add_dependencies(laserscan_to_proximitygrid ${PROJECT_NAME}_gencfg)
+
+add_executable(point_to_proximitygrid src/point_to_proximitygrid.cpp)
+target_link_libraries(point_to_proximitygrid cnbiros_shared_navigation ${catkin_LIBRARIES})
+add_dependencies(point_to_proximitygrid ${PROJECT_NAME}_gencfg)
+
+add_executable(proximitygrid_visualizer src/proximitygrid_visualizer.cpp)
+target_link_libraries(proximitygrid_visualizer cnbiros_shared_navigation ${catkin_LIBRARIES})
 
 add_executable(shared_actions src/shared_actions.cpp)
 target_link_libraries(shared_actions cnbiros_shared_navigation ${catkin_LIBRARIES})
