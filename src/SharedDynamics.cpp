@@ -163,6 +163,10 @@ float SharedDynamics::get_angular_velocity_repellors(sensor_msgs::LaserScan& sca
 		// Discard empty sectors
 		if(std::isinf(distance) == true || std::isnan(distance) == true )
 			continue;
+
+		// Discard distance below the minimum range
+		if(distance < scan.range_min)
+			continue;
 		
 		// Compute the contribution to the velocity
 		clambda = this->dyn_angular_repellors_strength_*
@@ -224,12 +228,12 @@ float SharedDynamics::get_linear_velocity_repellors(sensor_msgs::LaserScan& data
 		distance = (*it);
 		angle	+= angle_inc;
 		
-		if(distance <= 0.02)
-			distance = 6.0f;
-
-
 		// Discard empty sectors
 		if(std::isinf(distance) == true || std::isnan(distance) == true )
+			continue;
+		
+		// Discard distance below the minimum range
+		if(distance < data.range_min)
 			continue;
 		
 		// Check if the repellor is inside the projection with respect to the
