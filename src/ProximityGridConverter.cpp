@@ -56,7 +56,6 @@ bool ProximityGridConverter::FromPoint(const geometry_msgs::PointStamped& msg,
 }
 
 
-
 bool ProximityGridConverter::FromLaserScan(const sensor_msgs::LaserScan& msg, 
 											ProximityGrid& grid, 
 											tf::TransformListener* listener) {
@@ -74,18 +73,21 @@ bool ProximityGridConverter::FromLaserScan(const sensor_msgs::LaserScan& msg,
 	// Get grid frame ids
 	frame_id_grid = grid.GetFrame();
 	frame_id_scan = msg.header.frame_id;
-
 	// Fill the point_scan object with the msg header
 	point_scan.header = msg.header;
 
+	point_grid.header.frame_id = frame_id_grid;
 	// Initialize current angle with the minimum angle of the scan message
 	angle = msg.angle_min;
 	
+	//printf("frame id scan: %s\n", frame_id_scan.c_str());
+	//printf("scan_frame: %s\n", point_scan.header.frame_id.c_str());
+	//printf("grid_frame: %s\n", point_grid.header.frame_id.c_str());
 	// Iterate for each sector of the scan msg
 	for(auto it=msg.ranges.begin(); it!=msg.ranges.end(); ++it) {
 
 		point_scan.point.x = (*it)*std::sin(angle+M_PI/2.0f); 
-		point_scan.point.y = (*it)*std::cos(angle+M_PI/2.0f);
+		point_scan.point.y = -(*it)*std::cos(angle+M_PI/2.0f);
 		point_scan.point.z = 0.0f;
 
 		// Update angle for the next iteration
@@ -96,20 +98,23 @@ bool ProximityGridConverter::FromLaserScan(const sensor_msgs::LaserScan& msg,
 			continue;
 
 		// Check if the current value is outside range_min range_max
-		if( (*it) < msg.angle_min || (*it) > msg.angle_max ) 
+		if( (*it) < msg.range_min || (*it) > msg.range_max ) 
 			continue;
 		
 		// Try to transform to the grid frame
 		try {
 			listener->waitForTransform(frame_id_grid, frame_id_scan,
-									   ros::Time(0), ros::Duration(3.0) );
+									   msg.header.stamp, ros::Duration(3.0) );
+			//listener->waitForTransform(frame_id_scan, frame_id_grid,
+			//						   msg.header.stamp, ros::Duration(3.0) );
 			listener->transformPoint(frame_id_grid, point_scan, point_grid);
+			//listener->transformPoint(frame_id_scan, point_grid, point_scan);
 		} catch (tf::TransformException& ex) {
 			ROS_ERROR("%s", ex.what());
 			continue;
 		}
 
-		grid.SetSectorByCartesian(point_grid.point.x, point_grid.point.y);	
+		grid.SetSectorByCartesian(point_grid.point.y, point_grid.point.x);	
 	}
 
 	return true;

@@ -26,6 +26,8 @@ class ProximityGrid {
 		ProximityGrid& operator=(const ProximityGrid&) = default;
 		ProximityGrid(ProximityGrid&&) = default;
 		ProximityGrid& operator=(ProximityGrid&&) = default;
+
+		ProximityGrid operator+(const ProximityGrid& g);
 		
 		virtual ~ProximityGrid(void);
 
@@ -51,6 +53,8 @@ class ProximityGrid {
 
 		float GetSectorAngle(ProximityGridConstIt& it);
 		float GetSectorValue(ProximityGridConstIt& it);
+		float GetSectorAngle(unsigned int id);
+		float GetSectorValue(unsigned int id);
 		float GetSectorValue(float angle);
 		int GetSectorId(float angle);
 		

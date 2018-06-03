@@ -8,16 +8,22 @@ namespace cnbiros {
 
 LaserScanToProximityGrid::LaserScanToProximityGrid(void) : private_nh_("~") {
 
+	// Configure node
+	this->configure();
+	
 	// Initialize dynamic reconfiguration server
 	this->f_ = boost::bind(&LaserScanToProximityGrid::on_dynamic_reconfiguration, this, _1, _2);
 	this->cfgserver_.setCallback(this->f_);
-	
-	// Configure node
-	this->configure();
 
-    // Initialize subscriber and publisher
-    this->sub_ = this->nh_.subscribe(this->stopic_, 1, &LaserScanToProximityGrid::on_received_laserscan, this);
-    this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximityGridMsg>(this->ptopic_, 1);
+    // Initialize publisher
+    this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximityGridMsg>(this->pub_topic_, 1);
+
+	// Initialize subscribers from the provided list
+	for(auto i=0; i<this->src_topic_.size(); i++) {
+		this->sub_src_.push_back(this->nh_.subscribe<sensor_msgs::LaserScan>(this->src_topic_.at(i), 1, 
+					  boost::bind( &LaserScanToProximityGrid::on_received_laserscan, 
+					  this, _1, i) ));
+	}
 }
 
 LaserScanToProximityGrid::~LaserScanToProximityGrid(void) {
@@ -29,24 +35,29 @@ bool LaserScanToProximityGrid::configure(void) {
 
 	float angle_min, angle_max, angle_inc, range_min, range_max, publish_frequency;
 	std::string frame_id;
-	
+	std::string src_topics;	
+
 	this->rate_ = nullptr;
 	
 	// Getting parameters
-	this->private_nh_.param<std::string>("source", this->stopic_, "/hokuyo/scan");
-	this->private_nh_.param<std::string>("grid", this->ptopic_, "/proximity_grid");
+	this->src_topic_ = {"/hokuyo/scan"};
+	this->private_nh_.getParam("sources", this->src_topic_);
+	this->private_nh_.param<std::string>("grid", this->pub_topic_, "/proximity_grid");
 	
-	this->private_nh_.param<std::string>("frame_id", frame_id, "base_link");
+	this->private_nh_.param<std::string>("frame_id", frame_id, "hokuyo_link");
 	this->private_nh_.param<float>("angle_min",  angle_min, -M_PI/2.0f);
 	this->private_nh_.param<float>("angle_max",  angle_max, M_PI/2.0f);
 	this->private_nh_.param<float>("angle_inc", angle_inc, M_PI/20.0f);
 	this->private_nh_.param<float>("range_min",  range_min, 0.0f);
 	this->private_nh_.param<float>("range_max",  range_max, 6.0f);
-	this->private_nh_.param<float>("publish_frequency", this->publish_frequency_, 20.0);
+	this->private_nh_.param<float>("frequency", this->publish_frequency_, 20.0);
    
 	// Dump parameters
-	ROS_INFO("[ScanToGrid] subscribed topic: %s", this->stopic_.c_str());
-	ROS_INFO("[ScanToGrid] advertised topic: %s", this->ptopic_.c_str());
+	for(auto it=this->src_topic_.begin(); it != this->src_topic_.end(); ++it)
+		src_topics += (*it) + " ";
+
+	ROS_INFO("[ScanToGrid] subscribed topics: %s", src_topics.c_str());
+	ROS_INFO("[ScanToGrid] advertised topic: %s", this->pub_topic_.c_str());
 	ROS_INFO("[ScanToGrid] frame_id: %s", frame_id.c_str());
 	ROS_INFO("[ScanToGrid] minimum angle: %3.2f [deg]", this->rad2deg(angle_min));
 	ROS_INFO("[ScanToGrid] maximum angle: %3.2f [deg]", this->rad2deg(angle_max));
@@ -63,6 +74,10 @@ bool LaserScanToProximityGrid::configure(void) {
 	this->grid_.SetAngleIncrement(angle_inc);
 	this->grid_.SetFrame(frame_id);
 	this->grid_.SetRangeLimits(range_min, range_max);
+	
+	// Inititalize map sources
+	for(auto i = 0; i < this->src_topic_.size(); i++)
+		this->grid_src_.insert( std::pair<unsigned int, ProximityGrid>(i, ProximityGrid()) );
 
 	return true;
 }
@@ -70,10 +85,17 @@ bool LaserScanToProximityGrid::configure(void) {
 void LaserScanToProximityGrid::Run(void) {
 
 	cnbiros_shared_navigation::ProximityGridMsg		grid_msg;	
-	sensor_msgs::LaserScan							scan_msg;
 
 	while(this->nh_.ok()) {
 
+		// Reset the current grid
+		this->grid_.Reset();
+
+		// Update the current grid with the available sources
+		for(auto it = this->grid_src_.begin(); it != this->grid_src_.end(); ++it)
+			this->grid_ = this->grid_ + it->second;
+		
+		// Convert it into message and publish it	
 		ProximityGridConverter::ToMessage(this->grid_, grid_msg);
 		this->pub_.publish(grid_msg);
 		
@@ -130,12 +152,18 @@ void LaserScanToProximityGrid::on_dynamic_reconfiguration(cnbiros_shared_navigat
 }
 
 /******** Callback on received LaserScan ***********/
-void LaserScanToProximityGrid::on_received_laserscan(const sensor_msgs::LaserScan& msg) {
+void LaserScanToProximityGrid::on_received_laserscan(const sensor_msgs::LaserScanConstPtr& msg, unsigned int id) {
+
+	// Initialize the temporary grid with the same values of the current grid
+	ProximityGrid grid_new(this->grid_);
 
 	// Update the sector with LaserScan message
-	if(ProximityGridConverter::FromLaserScan(msg, this->grid_, &(this->listener_)) == false) {
+	if(ProximityGridConverter::FromLaserScan(*msg, grid_new, &(this->listener_)) == false) {
 		ROS_ERROR("[ScanToGrid] Cannot importing the incoming message into ProximitySector");
 	} 
+
+	// Store the source grid 
+	this->grid_src_[id] = grid_new;
 }
 
 float LaserScanToProximityGrid::rad2deg(float angle) {

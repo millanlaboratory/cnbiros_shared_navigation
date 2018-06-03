@@ -1,6 +1,9 @@
 #ifndef CNBIROS_SHAREDNAVIGATION_LASERSCANTOPROXIMITYGRID_HPP
 #define CNBIROS_SHAREDNAVIGATION_LASERSCANTOPROXIMITYGRID_HPP
 
+// Systema
+#include <unordered_map>
+
 // ROS includes
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
@@ -28,7 +31,7 @@ class LaserScanToProximityGrid {
 		void Run(void);
 
 	private:
-		void on_received_laserscan(const sensor_msgs::LaserScan& msgin);
+		void on_received_laserscan(const sensor_msgs::LaserScanConstPtr& msgin, unsigned int id);
 		void on_dynamic_reconfiguration(cnbiros_shared_navigation::LaserScanGridConfig &config, 
 										uint32_t level);
 
@@ -43,16 +46,17 @@ class LaserScanToProximityGrid {
 		ros::Rate*		rate_;
 		float			publish_frequency_;
 		
-		ros::Subscriber	sub_;
-		ros::Publisher	pub_;
+		ros::Publisher					pub_;
+		std::vector<ros::Subscriber>	sub_src_;
 		
-		std::string		stopic_;
-		std::string 	ptopic_;
+		std::string				 pub_topic_;
+		std::vector<std::string> src_topic_;
 
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::LaserScanGridConfig> cfgserver_;
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::LaserScanGridConfig>::CallbackType f_;
 		
 		ProximityGrid grid_;
+		std::unordered_map<unsigned int, ProximityGrid>	grid_src_;
 
 		tf::TransformListener listener_;
 };

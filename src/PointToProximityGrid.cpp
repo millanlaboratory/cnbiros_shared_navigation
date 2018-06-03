@@ -8,7 +8,6 @@ namespace cnbiros {
 
 PointToProximityGrid::PointToProximityGrid(void) : private_nh_("~") {
 
-	
 	// Configure node
 	this->configure();
 	
@@ -17,8 +16,11 @@ PointToProximityGrid::PointToProximityGrid(void) : private_nh_("~") {
 	this->cfgserver_.setCallback(this->f_);
 
     // Initialize subscriber and publisher
-    this->sub_ = this->nh_.subscribe(this->stopic_, 1, &PointToProximityGrid::on_received_point, this);
     this->pub_ = this->nh_.advertise<cnbiros_shared_navigation::ProximityGridMsg>(this->ptopic_, 1);
+
+	for(auto it=this->stopics_.begin(); it != this->stopics_.end(); ++it) {
+		this->subs_.push_back(this->nh_.subscribe((*it), 1, &PointToProximityGrid::on_received_point, this));
+	}
 }
 
 PointToProximityGrid::~PointToProximityGrid(void) {
@@ -30,11 +32,14 @@ bool PointToProximityGrid::configure(void) {
 
 	float angle_min, angle_max, angle_inc, range_min, range_max, publish_frequency;
 	std::string frame_id;
+	this->stopics_ = {"/dpoint1", "/dpoint2"};
 
 	this->rate_ = nullptr;
 
 	// Getting parameters
-	this->private_nh_.param<std::string>("source", this->stopic_, "/point");
+	//this->private_nh_.param<std::string>("source", this->stopic_, "/point");
+	this->private_nh_.getParam("sources", this->stopics_);
+
 	this->private_nh_.param<std::string>("grid", this->ptopic_, "/proximity_grid");
 	this->private_nh_.param<std::string>("frame_id", frame_id, "base_link");
 	this->private_nh_.param<float>("angle_min",  angle_min, -M_PI/2.0f);
@@ -45,7 +50,7 @@ bool PointToProximityGrid::configure(void) {
 	this->private_nh_.param<float>("publish_frequency", this->publish_frequency_, 20.0);
    
 	// Dump parameters
-	ROS_INFO("[PointToGrid] subscribed topic: %s", this->stopic_.c_str());
+	//ROS_INFO("[PointToGrid] subscribed topic: %s", this->stopic_.c_str());
 	ROS_INFO("[PointToGrid] advertised topic: %s", this->ptopic_.c_str());
 	ROS_INFO("[PointToGrid] frame_id: %s", frame_id.c_str());
 	ROS_INFO("[PointToGrid] minimum angle: %3.2f [deg]", this->rad2deg(angle_min));
@@ -70,8 +75,16 @@ bool PointToProximityGrid::configure(void) {
 void PointToProximityGrid::Run(void) {
 
 	cnbiros_shared_navigation::ProximityGridMsg		grid_msg;	
+	ProximityGrid	grid_curr;
 
 	while(this->nh_.ok()) {
+
+		grid_curr.Reset();
+		for(auto it = this->grid_sources_.begin(); it != this->grid_sources_.end(); ++it)
+			grid_curr = grid_curr + (*it);
+
+		this->grid_ = grid_curr;
+		this->grid_sources_.clear();
 
 		ProximityGridConverter::ToMessage(this->grid_, grid_msg);
 		this->pub_.publish(grid_msg);
@@ -131,12 +144,14 @@ void PointToProximityGrid::on_dynamic_reconfiguration(cnbiros_shared_navigation:
 /******** Callback on received point ***********/
 void PointToProximityGrid::on_received_point(const geometry_msgs::PointStamped& msg) {
 
-	ProximityGridConstIt it;
+	ProximityGrid grid_new;
 
 	// Update the sector with LaserScan message
-	if(ProximityGridConverter::FromPoint(msg, this->grid_, &(this->listener_)) == false) {
+	if(ProximityGridConverter::FromPoint(msg, grid_new, &(this->listener_)) == false) {
 		ROS_ERROR("[PointToGrid] Cannot importing the incoming message into ProximityGrid");
 	} 
+
+	this->grid_sources_.push_back(grid_new);
 }
 
 float PointToProximityGrid::rad2deg(float angle) {

@@ -38,6 +38,30 @@ ProximityGrid::ProximityGrid(void) {
 
 ProximityGrid::~ProximityGrid(void) {}
 
+ProximityGrid ProximityGrid::operator+(const ProximityGrid& g) {
+
+	ProximityGrid			grid;
+	ProximityGrid			other(g);
+	ProximityGridConstIt	it;
+	float					cangle,	cradius;
+
+	grid.SetAngleLimits(this->GetAngleMin(), this->GetAngleMax());
+	grid.SetAngleIncrement(this->GetAngleIncrement());
+	grid.SetFrame(this->GetFrame());
+	grid.SetRangeLimits(this->GetRangeMin(), this->GetRangeMax());
+	grid.SetGrid(this->GetGrid());
+
+	for(it = other.Begin(); it != other.End(); ++it) {
+
+		cangle  = other.GetSectorAngle(it);
+		cradius = other.GetSectorValue(it); 
+
+		grid.SetSectorByPolar(cangle, cradius);
+	}
+
+	return grid;
+}
+
 void ProximityGrid::SetAngleIncrement(float angle_inc) {
 
 	// Given the desired increment compute the number of sectors
@@ -174,6 +198,10 @@ float ProximityGrid::GetSectorValue(ProximityGridConstIt& it) {
 	return (*it);
 }
 
+float ProximityGrid::GetSectorValue(unsigned int id) {
+	return this->grid_.at(id);
+}
+
 float ProximityGrid::GetSectorAngle(ProximityGridConstIt& it) {
 
 	unsigned int index = it - this->grid_.begin();
@@ -185,9 +213,11 @@ int ProximityGrid::GetSectorId(float angle) {
 }
 
 float ProximityGrid::GetSectorValue(float angle) {
-
-    int sector_id;
 	return this->get_sector_value(angle);
+}
+
+float ProximityGrid::GetSectorAngle(unsigned int id) {
+	return this->get_sector_angle(id);
 }
 
 ProximityGridIt ProximityGrid::Begin(void) {
