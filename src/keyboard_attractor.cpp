@@ -119,12 +119,12 @@ int main(int argc, char** argv){
 	std::string		frame_id;
 	std::string		topic		= "/point";
 
-	ros::init(argc, argv, "keyboard_goal");
+	ros::init(argc, argv, "keyboard_attractor");
 	ros::NodeHandle node;
 	ros::Publisher	pub;
 	ros::Rate r(10);
 
-	node.param<std::string>("frame_id", frame_id, "base_link");
+	node.param<std::string>("frame_id", frame_id, "hokuyo_link");
 
 	// Initialize PointStamped message
 	geometry_msgs::PointStamped	message;
@@ -200,7 +200,7 @@ int main(int argc, char** argv){
 
 		if(iscommand == true) {
 
-			message.header.stamp = ros::Time::now();
+			//message.header.stamp = ros::Time::now();
 			
 			pub.publish(message);
 			iscommand = false;

@@ -43,16 +43,15 @@ class PointToProximityGrid {
 		float			publish_frequency_;
 		
 		ros::Publisher	pub_;
-		std::vector<ros::Subscriber>	subs_;
+		ros::Subscriber	sub_;
 
 		std::string 	ptopic_;
-		std::vector<std::string> stopics_;
+		std::string		stopic_;
 
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::PointGridConfig> cfgserver_;
 		dynamic_reconfigure::Server<cnbiros_shared_navigation::PointGridConfig>::CallbackType f_;
 
 		ProximityGrid				grid_;
-		std::vector<ProximityGrid>	grid_sources_;
 
 		tf::TransformListener listener_;
 };

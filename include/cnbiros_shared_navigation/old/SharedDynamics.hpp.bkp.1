@@ -1,5 +1,4 @@
 #ifndef CNBIROS_SHAREDNAVIGATION_SHAREDDYNAMICS_HPP
-#define CNBIROS_SHAREDNAVIGATION_SHAREDDYNAMICS_HPP
 
 // System includes
 #include <exception>
@@ -10,9 +9,9 @@
 #include <sensor_msgs/LaserScan.h>
 
 // Package includes
-#include "cnbiros_shared_navigation/ProximityGrid.hpp"
-#include "cnbiros_shared_navigation/ProximityGridMsg.h"
-#include "cnbiros_shared_navigation/ProximityGridConverter.hpp"
+#include "cnbiros_shared_navigation/ProximitySector.hpp"
+#include "cnbiros_shared_navigation/ProximitySectorMsg.h"
+#include "cnbiros_shared_navigation/ProximitySectorConverter.hpp"
 #include "cnbiros_shared_navigation/SharedDynamicsConfig.h"
 
 namespace cnbiros {
@@ -37,14 +36,32 @@ class SharedDynamics {
 
 	private:
 
-		float get_angular_velocity_repellors(ProximityGrid& data);
-		float get_angular_velocity_attractors(float angle);
-		float get_linear_velocity_repellors(ProximityGrid& data);
+		// Robot
+		//void get_robot_dimension(float* lenght, float* width, geometry_msgs::Polygon polygon);
+
+		// Velocity Dynamics
+		//float get_angular_velocity_repellors(ProximitySector& data);
+		float get_angular_velocity_repellors(sensor_msgs::LaserScan& data);
+		float get_linear_velocity_repellors(sensor_msgs::LaserScan& data);
+	
+		//float get_angular_velocity_attractors(ProximitySector& data);
+		//float get_linear_velocity(ProximitySector& data);
+		float compute_linear_velocity(float x, float x1, float x2, float y1, float y2, float weight);
+
+		//float get_subtended_angle(float obs_distance, float obs_size, float robot_size);
+		//float get_angular_repellor_forcelet(float phi, float psi, float dpsitot);
+		//float get_angular_repellor_range(float phi, float psi, float dpsitot, float delta);
+		//float get_angular_repellor_decay(float obs_distance, float obs_size, float robot_size, float influence);
+		//float get_angular_attractor_forcelet(float phi, float psi, float tau);
+
 		bool  is_projection_inside(float distance, float angle, float width);
 
 		// Callbacks
-		void on_received_repellors(const cnbiros_shared_navigation::ProximityGridMsg& data);
-		void on_received_attractors(const cnbiros_shared_navigation::ProximityGridMsg& data);
+		//void on_received_repellors(const cnbiros_shared_navigation::ProximitySectorMsg& data);
+		//void on_received_attractors(const cnbiros_shared_navigation::ProximitySectorMsg& data);
+		//void on_received_footprint(const geometry_msgs::PolygonStamped& data);
+		
+		void on_received_scan(const sensor_msgs::LaserScan& data);
 
 		void on_publish_velocity(const ros::TimerEvent& event);
 		void reconfigure_callback(cnbiros_shared_navigation::SharedDynamicsConfig &config, uint32_t level);
@@ -64,35 +81,41 @@ class SharedDynamics {
 		// Topics
 		std::string t_repellors_;
 		std::string t_attractors_;
+		std::string	t_footprint_;
 		std::string	t_velocity_;
+		std::string	t_visual_velocity_;
 
 		// Subscribers
 		ros::Subscriber s_repellors_;
+		ros::Subscriber s_tmp_scan_;
 		ros::Subscriber s_attractors_;
+		ros::Subscriber s_footprint_;
 
 		// Publishers
 		ros::Publisher	p_velocity_;
+		ros::Publisher	p_visual_velocity_;
 
-		// Proximity grid
-		ProximityGrid	pr_repellors_;
-		//ProximityGrid   pr_attractors_;
+		// Proximity sectors
+		ProximitySector	pr_repellors_;
+		ProximitySector pr_attractors_;
+		sensor_msgs::LaserScan		tmp_scan_;
 
 		// Dynamic reconfigure
 		DynamicReconfig					n_dynreconfig_server_;
 		DynamicReconfig::CallbackType	n_dynreconfig_function_;
 
 		// Robot
-		std::string		base_frame_;
-		float			size_right_;
-		float			size_left_;
-		float			safe_distance_front_;
-		float			safe_distance_lateral_;
+		std::string		robot_base_frame_;
+		float			robot_size_right_;
+		float			robot_size_left_;
+		float			robot_size_front_;
+		float			robot_size_back_;
+		float			robot_safe_distance_;
 
 		// General boolean states
 		bool	is_data_available_;
 		
 		// General node variables
-		bool		n_autostart_;
 		bool		n_enable_repellors_;
 		bool		n_enable_attractors_;
 		float		n_update_rate_;
@@ -107,12 +130,12 @@ class SharedDynamics {
 		float	dyn_linear_velocity_max_;
 		
 		float	dyn_angular_repellors_strength_;
-		float	dyn_angular_attractors_strength_;
 		float	dyn_angular_repellors_decay_;
 		float	dyn_linear_velocity_decay_;
-		float	dyn_angular_attractor_;
+		
 
 		geometry_msgs::Twist		velocity_;
+		geometry_msgs::PoseStamped		visual_velocity_;
 };
 		
 	}

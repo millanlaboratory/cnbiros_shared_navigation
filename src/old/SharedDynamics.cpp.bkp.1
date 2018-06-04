@@ -8,35 +8,41 @@ namespace cnbiros {
 SharedDynamics::SharedDynamics(void) : p_nh_("~") {
 
 	this->n_rate_ = nullptr;
-	
-	// Configure node
-	this->configure();
 
 	// Dynamic reconfiguration
 	this->n_dynreconfig_function_ = boost::bind(&SharedDynamics::reconfigure_callback, this, _1, _2);
 	this->n_dynreconfig_server_.setCallback(this->n_dynreconfig_function_);
 
+	// Configure node
+	this->configure();
+
 	// Initialize subscribers
-    this->s_repellors_  = this->p_nh_.subscribe(this->t_repellors_, 1, &SharedDynamics::on_received_repellors, this);
-    this->s_attractors_ = this->p_nh_.subscribe(this->t_attractors_, 1, &SharedDynamics::on_received_attractors, this);
+    //this->s_repellors_  = this->p_nh_.subscribe(this->t_repellors_, 1, &SharedDynamics::on_received_repellors, this);
+    //this->s_attractors_ = this->p_nh_.subscribe(this->t_attractors_, 1, &SharedDynamics::on_received_attractors, this);
+    this->s_tmp_scan_ = this->p_nh_.subscribe("/hokuyo/scan", 1, &SharedDynamics::on_received_scan, this);
+    //this->s_footprint_ = this->nh_.subscribe(this->t_footprint_, 1, &SharedDynamics::on_received_footprint, this);
+
 	// Initialiaze publishers
-	this->p_velocity_	   = this->p_nh_.advertise<geometry_msgs::Twist>(this->t_velocity_, 1);
+	this->p_velocity_  = this->p_nh_.advertise<geometry_msgs::Twist>(this->t_velocity_, 1);
+	this->p_visual_velocity_  = this->p_nh_.advertise<geometry_msgs::PoseStamped>(this->t_visual_velocity_, 1);
+
 }
 
-SharedDynamics::~SharedDynamics(void) {
-	if(this->n_rate_ != nullptr)
-		delete this->n_rate_;
-}
+SharedDynamics::~SharedDynamics(void) {}
 
 bool SharedDynamics::configure(void) {
 
 	// Default topics
-	this->t_repellors_	= "repellors";
-	this->t_attractors_	= "attractors"; 
-	this->t_velocity_	= "/cmd_vel";
+	this->t_repellors_		= "repellors";
+	this->t_attractors_		= "attractors"; 
+	this->t_footprint_		= "/move_base/local_costmap/footprint";
+	this->t_velocity_		= "/cmd_vel";
+	this->t_visual_velocity_ = "visual_velocity";
 
-	this->size_right_	= 0.375f;
-	this->size_left_	= 0.375f;
+	this->robot_size_right_	= 0.375f;
+	this->robot_size_left_  = 0.375f;
+	this->robot_size_front_ = 0.0f;			// TMP - Until I use the laser scan frame_id
+	this->robot_size_back_  = 0.0f;
 
 	// Getting parameters
 	this->p_nh_.param<bool>("enable_repellors",	 this->n_enable_repellors_, true);
@@ -45,24 +51,22 @@ bool SharedDynamics::configure(void) {
 	this->p_nh_.param<float>("publish_frequency",	this->publish_frequency_, 10.0f);
 
 	// Robot parameters
-	this->p_nh_.param<std::string>("base_frame", this->base_frame_, "base_link");
+	this->p_nh_.param<std::string>("robot_base_frame", this->robot_base_frame_, "base_link");
 	
 	// Velocity Dynamics parameters 
-	this->p_nh_.param<float>("safe_distance_front", this->safe_distance_front_, 0.1f);
-	this->p_nh_.param<float>("safe_distance_lateral", this->safe_distance_lateral_, 0.0f);
+	this->p_nh_.param<float>("robot_safe_distance", this->robot_safe_distance_, 1.2f);
 	
-	this->p_nh_.param<float>("angular_velocity_min", this->dyn_angular_velocity_min_, 0.0f);
+	this->p_nh_.param<float>("angular_velocity_min", this->dyn_angular_velocity_min_, 0.17f);
 	this->p_nh_.param<float>("angular_velocity_max", this->dyn_angular_velocity_max_, 0.3f);
 
-	this->p_nh_.param<float>("linear_velocity_min", this->dyn_linear_velocity_min_, 0.10f);
-	this->p_nh_.param<float>("linear_velocity_max", this->dyn_linear_velocity_max_, 0.15f);
+	this->p_nh_.param<float>("linear_velocity_min", this->dyn_linear_velocity_min_, 0.08f);
+	this->p_nh_.param<float>("linear_velocity_max", this->dyn_linear_velocity_max_, 0.250f);
 	
-	this->p_nh_.param<float>("angular_repellors_strength", this->dyn_angular_repellors_strength_, 0.5f);
-	this->p_nh_.param<float>("angular_repellors_decay", this->dyn_angular_repellors_decay_, 0.8f);
-	this->p_nh_.param<float>("angular_attractors_strength", this->dyn_angular_attractors_strength_, 1.0f);
+	this->p_nh_.param<float>("angular_repellors_strength", this->dyn_angular_repellors_strength_, 5.0f);
+	this->p_nh_.param<float>("angular_repellors_decay", this->dyn_angular_repellors_decay_, 1.0f);
 	this->p_nh_.param<float>("linear_velocity_decay", this->dyn_linear_velocity_decay_, 1.0f);
-
-	this->dyn_angular_attractor_ = 0.0f;
+	//this->p_nh_.param<float>("linear_velocity_weight", this->dyn_linear_velocity_weight_, 0.0f);
+	
 
 	// Initialize boolean states
 	this->is_data_available_ = false;
@@ -96,186 +100,214 @@ void SharedDynamics::MakeVelocity(void) {
 	float vangular_r	= 0.0f;
 	float vangular_a	= 0.0f;
 	float vlinear		= 0.0f;
-	float vangular_limited, vangular_scaled;
 
 	// Compute orientation for repellors
 	if(this->n_enable_repellors_ == true) {
-		vangular_r  = this->get_angular_velocity_repellors(this->pr_repellors_);
-		ROS_DEBUG_NAMED("velocity_repellors", "Repellors angular velocity: %f [deg/s]", rad2deg(vangular_r));
+		//vangular_r  = this->get_angular_velocity_repellors(this->pr_repellors_);
+		vangular_r  = this->get_angular_velocity_repellors(this->tmp_scan_);
+		ROS_DEBUG_NAMED("shareddynamics", "Repellor angular velocity: %f [deg/s]", rad2deg(vangular_r));
 	}
 	
 	// Compute orientation for attractors
-	if(this->n_enable_attractors_ == true) {
-		vangular_a = this->get_angular_velocity_attractors(this->dyn_angular_attractor_);
-		ROS_DEBUG_NAMED("velocity_attractors", "Attractors angular velocity: %f [deg/s]", rad2deg(vangular_a));
-	}
+	//if(this->n_enable_attractors_ == true) {
+	//	vangular_a = this->get_angular_velocity_attractors(this->pr_attractors_);
+	//	ROS_DEBUG_NAMED("shareddynamics", "Attractor angular velocity: %f [deg/s]", rad2deg(vangular_a));
+	//}
 
 	vangular = vangular_a - vangular_r;
 
-	// Limit the output velocity between -max and max
-	vangular_limited = this->limit_range_value(vangular, 
-											  -this->dyn_angular_velocity_max_,
-											   this->dyn_angular_velocity_max_);
-
-	// Scale the output velocity assuming that the absolute value of the input
-	// is between [0 max] and the scaled range must be between [velocity_min
-	// velocity_max]
-	vangular_scaled  = this->scale_range_value(vangular_limited, 0.0f, 
-										this->dyn_angular_velocity_max_,
-									    this->dyn_angular_velocity_min_, 
-										this->dyn_angular_velocity_max_);
-	
 	// Compute linear velocity (repellors based)
-	if(this->is_data_available_ == true)
-		vlinear = this->get_linear_velocity_repellors(this->pr_repellors_);
+	if(this->is_data_available_ == true)	
+		vlinear = this->get_linear_velocity_repellors(this->tmp_scan_);
 
 
-	// Fill the Twist message
-	this->velocity_.linear.x	= 0.0;
-	//this->velocity_.linear.x	= vlinear;
+	//vlinear = 0.15f;
+	//printf("Linear velocity:  %f\n", vlinear);
+	//printf("Angular velocity: %f\n", vangular);
+	
+	this->velocity_.linear.x	= vlinear;
 	this->velocity_.linear.y	= 0.0;
 	this->velocity_.linear.z	= 0.0;
 	this->velocity_.angular.x	= 0.0;
 	this->velocity_.angular.y	= 0.0;
-	this->velocity_.angular.z	= -vangular_scaled;
+	this->velocity_.angular.z	= -vangular;
+
 }
 
 
-float SharedDynamics::get_angular_velocity_repellors(ProximityGrid& data) {
+float SharedDynamics::get_angular_velocity_repellors(sensor_msgs::LaserScan& scan) {
 
-	ProximityGridConstIt	it;
-	float distance, angle;
+	float distance, angle, angle_inc;
 	float clambda, csigma, cdtheta;
 	float cw;
 	float w = 0.0f;
+	float w_limited;
+	float w_scaled;
 
-	float robot_width			= this->size_right_ + this->size_left_;
-	float safe_distance_front	= this->safe_distance_front_;
-	float safe_distance_lateral	= this->safe_distance_lateral_;
+	float robot_front_size = this->robot_size_front_;		
+	float robot_width	   = this->robot_size_right_ + this->robot_size_left_;
+	float safe_distance    = this->robot_safe_distance_;
 
 	float hangle = 0.0;
 
 	
 	// Iterate over the sectors
-	for(it=data.Begin(); it!=data.End(); ++it) {
+	angle	 = scan.angle_min;
+	angle_inc = scan.angle_increment;
+	for(auto it=scan.ranges.begin(); it!=scan.ranges.end(); ++it) {
 	
 		// Get current distance and angle
-		distance	= data.GetSectorValue(it);
-		angle		= data.GetSectorAngle(it);
+		distance	= (*it);
+		angle		+= angle_inc;
 		
 		// Discard empty sectors
 		if(std::isinf(distance) == true || std::isnan(distance) == true )
 			continue;
 
+		// Discard distance below the minimum range
+		if(distance < scan.range_min)
+			continue;
 		
 		// Compute the contribution to the velocity
 		clambda = this->dyn_angular_repellors_strength_*
-				  exp(-( (distance - safe_distance_front)/this->dyn_angular_repellors_decay_));
+				  exp(-( (distance - robot_front_size - safe_distance)/this->dyn_angular_repellors_decay_));
 
-		// If distance is smaller than safe distance, maximum value of lambda
-		if( distance < (safe_distance_front) )
+		if( distance < (robot_front_size + safe_distance) )
 			clambda = this->dyn_angular_repellors_strength_;
 
-		// Fixed sector angle
-		cdtheta = data.GetAngleIncrement();
+		cdtheta = std::asin( (robot_width + safe_distance)/(distance) );
 
-		// Compute current sigma
+		if( distance < (robot_width + safe_distance) )
+			cdtheta = M_PI/2.0f;
+
+		cdtheta = angle_inc;
 		csigma  = std::atan( std::tan(cdtheta/2.0f) 
-				  + (robot_width + safe_distance_lateral)/(robot_width + safe_distance_lateral + distance ) );
-
-		// Compute current angular velocity for this sector
+				  + (robot_width + safe_distance)/(robot_width + safe_distance + distance ) );
 		cw = clambda*(hangle-angle)*std::exp(-(std::pow(hangle-angle, 2))/(2.0f*pow(csigma, 2)));
 
-		// Update the total angular velocity
 		w += cw;
 	}
 
+	// Limit the output velocity between -max and max
+	w_limited = this->limit_range_value(w, -this->dyn_angular_velocity_max_,
+										    this->dyn_angular_velocity_max_);
+
+	// Scale the output velocity assuming that the absolute value of the input
+	// is between [0 max] and the scaled range must be between [velocity_min
+	// velocity_max]
+	w_scaled  = this->scale_range_value(w_limited, 0.0f, 
+										this->dyn_angular_velocity_max_,
+									    this->dyn_angular_velocity_min_, 
+										this->dyn_angular_velocity_max_);
 											
-	return w;
+	printf("Angular velocity: %f\n", w);
+	printf("Angular velocity limited: %f\n", w_limited);
+	printf("Angular velocity scaled:  %f\n", w_scaled);
+
+	return w_scaled;
 }
 
-float SharedDynamics::get_angular_velocity_attractors(float angle) {
-	
-	//float forcelet;
+float SharedDynamics::get_linear_velocity_repellors(sensor_msgs::LaserScan& data) {
 
-	//forcelet = -tau*std::sin(phi - psi);
-	float w;
-	float hangle = 0.0f;
-
-	w =  this->dyn_angular_attractors_strength_*std::sin(hangle - angle);
-
-	printf("angle attractor: %f\n", angle);
-	return w;
-}
-
-float SharedDynamics::get_linear_velocity_repellors(ProximityGrid& data) {
-
-	ProximityGridConstIt	it;
-	float distance, angle;
-	float min_angle, min_distance;
-	float safe_distance_front;
+	float distance, angle, angle_inc;
+	float min_distance;
 	float robot_width;
-	float sangle;
+	float sel_angle;
 	float x;
 	float y;
 
 	x = 6.0f;
-	robot_width		    = this->size_right_ + this->size_left_ + 2.0f*this->safe_distance_lateral_;
-	safe_distance_front = this->safe_distance_front_;
+	robot_width  = this->robot_size_right_ + this->robot_size_left_;
+	min_distance = this->robot_safe_distance_;
 
 	// Iterate over the sectors
-	for(it=data.Begin(); it!=data.End(); ++it) {
+	angle	  = data.angle_min;
+	angle_inc = data.angle_increment;
+	for(auto it=data.ranges.begin(); it!=data.ranges.end(); ++it) {
 	
-		distance = data.GetSectorValue(it);
-		angle	 = data.GetSectorAngle(it);
+		distance = (*it);
+		angle	+= angle_inc;
 		
 		// Discard empty sectors
 		if(std::isinf(distance) == true || std::isnan(distance) == true )
+			continue;
+		
+		// Discard distance below the minimum range
+		if(distance < data.range_min)
 			continue;
 		
 		// Check if the repellor is inside the projection with respect to the
 		// current wheelchair heading direction (angle=0.0). If it is outside,
 		// then discard the repellor. Correct the current angle for standard
 		// coordinates.
-		if(this->is_projection_inside(distance, angle+M_PI/2.0f, robot_width) == false)
+		if(this->is_projection_inside(distance, angle+M_PI/2.0f-angle_inc, robot_width) == false)
 			continue;
 
-		// If distance is smaller then the previous one, select this distance
 		if(distance < x) {
 			 x = distance;
-			 min_angle = angle;
+			 sel_angle = angle - angle_inc;
 		}
 	}
 
-	// If distance smaller the safe distance, then fixed negative velocity.
-	// Otherwise compute the velocity according to exponential function
-	y = -0.2f;
-	if (x > safe_distance_front) {
-		y = this->dyn_linear_velocity_max_*
-		    (1.0f - std::exp(- (x - safe_distance_front)/this->dyn_linear_velocity_decay_ ));
+	printf("closest distance: %f\n mindistance: %f\n minangle: %f\n", x, min_distance, sel_angle);
+	if (x < min_distance) {
+		y = -0.2f;
+	} else {
+		y = this->dyn_linear_velocity_max_*(1.0f - std::exp(- (x - min_distance)/this->dyn_linear_velocity_decay_ ));
+		//y = this->dyn_linear_velocity_max_;
 	}
+
+	//y = this->compute_linear_velocity(x, min_distance, max_distance, min_vel, max_vel, weight);
+
+	return y;
+}
+
+float SharedDynamics::compute_linear_velocity(float x, float x1, float x2, float y1, float y2, float weight) {
+
+	float m, b, y;
+
+	m = ( 1.0f/(1.0f + weight) )*( (y2 - y1)/(x2 - x1) );
+	b = y1 - m*x1;
+
+	y = m*x + b;
+	
+	if(x <= x1)
+		y = y - 2.0f*y1;
+
+	if(y > y2) 
+		y = y2;
+	else if(y < -y2)
+		y = -y2;
+	
 
 	return y;
 }
 
 bool SharedDynamics::is_projection_inside(float distance, float angle, float width) {
-
 	float projection;
 
 	projection = std::fabs(distance*cos(angle));
 
-	if(projection > width/2.0f)
+	//printf("Projection is %3.2f, width is %3.2f\n", projection, width);
+	if(std::fabs(distance*cos(angle)) <= width/2.0f)
+		return true;
+	else
 		return false;
-		
-	return true;
 }
 
 void SharedDynamics::on_publish_velocity(const ros::TimerEvent& event) {
 
 	this->p_velocity_.publish(this->velocity_);
 
-	ROS_DEBUG_NAMED("velocity", "Published velocity: v=%3.2f [m/s], o=%3.2f [deg/s]", 
-					this->velocity_.linear.x, this->rad2deg(this->velocity_.angular.z));
+	ROS_INFO("Published velocity: v=%3.2f, o=%3.2f", this->velocity_.linear.x, this->velocity_.angular.z);
+
+
+	this->visual_velocity_.header.frame_id = this->robot_base_frame_;
+	this->visual_velocity_.header.stamp = ros::Time::now();
+	this->visual_velocity_.pose.position.x = 0.0;
+	this->visual_velocity_.pose.position.y = 0.0;
+	this->visual_velocity_.pose.orientation = tf::createQuaternionMsgFromYaw(this->velocity_.angular.z);
+	this->p_visual_velocity_.publish(this->visual_velocity_);
 }
 
 float SharedDynamics::scale_range_value(float x, float minx, float maxx, float miny, float maxy) {
@@ -306,40 +338,9 @@ float SharedDynamics::limit_range_value(float x, float minx, float maxx) {
 	
 	return lx;
 }
-
-void SharedDynamics::on_received_repellors(const cnbiros_shared_navigation::ProximityGridMsg& data) {
-
-	// Set true the availability of repellors data (used for first iteration)
-	ROS_WARN_ONCE("First proximity grid messaged received! Repellors data available.");
+void SharedDynamics::on_received_scan(const sensor_msgs::LaserScan& data) {
 	this->is_data_available_ = true;
-	
-	// Convert and store repellor data
-	if(ProximityGridConverter::FromMessage(data, this->pr_repellors_) == false) {
-		ROS_ERROR("Cannot convert repellor proximity grid message");
-	}
-}
-
-void SharedDynamics::on_received_attractors(const cnbiros_shared_navigation::ProximityGridMsg& data) {
-
-	ProximityGridConstIt it;
-	ProximityGrid		 grid;
-	float				 angle;
-
-	angle = 0.0f;
-	// Convert and store attractor data
-	if(ProximityGridConverter::FromMessage(data, grid) == false) {
-		ROS_ERROR("Cannot convert attractors proximity grid message");
-	}
-
-	for(it = grid.Begin(); it != grid.End(); ++it) {
-
-		// Discard empty sectors
-		if(std::isinf(grid.GetSectorValue(it)) == true || std::isnan(grid.GetSectorValue(it)) == true )
-			continue;
-
-		this->dyn_angular_attractor_ = grid.GetSectorAngle(it) + grid.GetAngleIncrement()/2.0f;
-	}
-
+	this->tmp_scan_ = data;
 }
 
 void SharedDynamics::reconfigure_callback(cnbiros_shared_navigation::SharedDynamicsConfig &config, 
@@ -361,10 +362,6 @@ void SharedDynamics::reconfigure_callback(cnbiros_shared_navigation::SharedDynam
 	if(this->update_if_different(config.angular_repellors_decay, this->dyn_angular_repellors_decay_))
 		ROS_WARN("Updated angular repellors decay to %f", this->dyn_angular_repellors_decay_);
 	
-	// Angular attractors strength
-	if(this->update_if_different(config.angular_attractors_strength, this->dyn_angular_attractors_strength_))
-		ROS_WARN("Updated angular attractors strength to %f", this->dyn_angular_attractors_strength_);
-	
 	// Linear minimum velocity
 	if(this->update_if_different(config.linear_velocity_min, this->dyn_linear_velocity_min_))
 		ROS_WARN("Updated linear velocity minimum to %f", this->dyn_linear_velocity_min_);
@@ -373,17 +370,17 @@ void SharedDynamics::reconfigure_callback(cnbiros_shared_navigation::SharedDynam
 	if(this->update_if_different(config.linear_velocity_max, this->dyn_linear_velocity_max_))
 		ROS_WARN("Updated linear velocity maximum to %f", this->dyn_linear_velocity_max_);
 	
+	//// Linear slope velocity
+	//if(this->update_if_different(config.linear_velocity_weight, this->dyn_linear_velocity_weight_))
+	//	ROS_WARN("Updated linear velocity slowness to %f", this->dyn_linear_velocity_weight_);
+	
 	// Linear velocity decay
 	if(this->update_if_different(config.linear_velocity_decay, this->dyn_linear_velocity_decay_))
 		ROS_WARN("Updated linear velocity decay to %f", this->dyn_linear_velocity_decay_);
 	
 	// Linear safe distance
-	if(this->update_if_different(config.safe_distance_front, this->safe_distance_front_))
-		ROS_WARN("Updated robot safe front distance to %f", this->safe_distance_front_);
-	
-	// Linear safe distance
-	if(this->update_if_different(config.safe_distance_lateral, this->safe_distance_lateral_))
-		ROS_WARN("Updated robot safe lateral distance to %f", this->safe_distance_lateral_);
+	if(this->update_if_different(config.robot_safe_distance, this->robot_safe_distance_))
+		ROS_WARN("Updated robot safe distance to %f", this->robot_safe_distance_);
 	
 	// Update rate
 	if(this->update_if_different(config.update_rate, this->n_update_rate_)) {
@@ -423,132 +420,6 @@ bool SharedDynamics::update_if_different(const float& first, float& second, floa
 	return is_different;
 }
 
-//float SharedDynamics::get_angular_velocity_repellors(sensor_msgs::LaserScan& scan) {
-//
-//	float distance, angle, angle_inc;
-//	float clambda, csigma, cdtheta;
-//	float cw;
-//	float w = 0.0f;
-//	float w_limited;
-//	float w_scaled;
-//
-//	float robot_front_size = this->robot_size_front_;		
-//	float robot_width	   = this->robot_size_right_ + this->robot_size_left_;
-//	float safe_distance    = this->robot_safe_distance_;
-//
-//	float hangle = 0.0;
-//
-//	
-//	// Iterate over the sectors
-//	angle	 = scan.angle_min;
-//	angle_inc = scan.angle_increment;
-//	for(auto it=scan.ranges.begin(); it!=scan.ranges.end(); ++it) {
-//	
-//		// Get current distance and angle
-//		distance	= (*it);
-//		angle		+= angle_inc;
-//		
-//		// Discard empty sectors
-//		if(std::isinf(distance) == true || std::isnan(distance) == true )
-//			continue;
-//
-//		// Discard distance below the minimum range
-//		if(distance < scan.range_min)
-//			continue;
-//		
-//		// Compute the contribution to the velocity
-//		clambda = this->dyn_angular_repellors_strength_*
-//				  exp(-( (distance - robot_front_size - safe_distance)/this->dyn_angular_repellors_decay_));
-//
-//		if( distance < (robot_front_size + safe_distance) )
-//			clambda = this->dyn_angular_repellors_strength_;
-//
-//		cdtheta = std::asin( (robot_width + safe_distance)/(distance) );
-//
-//		if( distance < (robot_width + safe_distance) )
-//			cdtheta = M_PI/2.0f;
-//
-//		cdtheta = angle_inc;
-//		csigma  = std::atan( std::tan(cdtheta/2.0f) 
-//				  + (robot_width + safe_distance)/(robot_width + safe_distance + distance ) );
-//		cw = clambda*(hangle-angle)*std::exp(-(std::pow(hangle-angle, 2))/(2.0f*pow(csigma, 2)));
-//
-//		w += cw;
-//	}
-//
-//	// Limit the output velocity between -max and max
-//	w_limited = this->limit_range_value(w, -this->dyn_angular_velocity_max_,
-//										    this->dyn_angular_velocity_max_);
-//
-//	// Scale the output velocity assuming that the absolute value of the input
-//	// is between [0 max] and the scaled range must be between [velocity_min
-//	// velocity_max]
-//	w_scaled  = this->scale_range_value(w_limited, 0.0f, 
-//										this->dyn_angular_velocity_max_,
-//									    this->dyn_angular_velocity_min_, 
-//										this->dyn_angular_velocity_max_);
-//											
-//	printf("Angular velocity: %f\n", w);
-//	printf("Angular velocity limited: %f\n", w_limited);
-//	printf("Angular velocity scaled:  %f\n", w_scaled);
-//
-//	return w_scaled;
-//}
-//
-//float SharedDynamics::get_linear_velocity_repellors(sensor_msgs::LaserScan& data) {
-//
-//	float distance, angle, angle_inc;
-//	float min_distance;
-//	float robot_width;
-//	float sel_angle;
-//	float x;
-//	float y;
-//
-//	x = 6.0f;
-//	robot_width  = this->robot_size_right_ + this->robot_size_left_;
-//	min_distance = this->robot_safe_distance_;
-//
-//	// Iterate over the sectors
-//	angle	  = data.angle_min;
-//	angle_inc = data.angle_increment;
-//	for(auto it=data.ranges.begin(); it!=data.ranges.end(); ++it) {
-//	
-//		distance = (*it);
-//		angle	+= angle_inc;
-//		
-//		// Discard empty sectors
-//		if(std::isinf(distance) == true || std::isnan(distance) == true )
-//			continue;
-//		
-//		// Discard distance below the minimum range
-//		if(distance < data.range_min)
-//			continue;
-//		
-//		// Check if the repellor is inside the projection with respect to the
-//		// current wheelchair heading direction (angle=0.0). If it is outside,
-//		// then discard the repellor. Correct the current angle for standard
-//		// coordinates.
-//		if(this->is_projection_inside(distance, angle+M_PI/2.0f-angle_inc, robot_width) == false)
-//			continue;
-//
-//		if(distance < x) {
-//			 x = distance;
-//			 sel_angle = angle - angle_inc;
-//		}
-//	}
-//
-//	printf("closest distance: %f\n mindistance: %f\n minangle: %f\n", x, min_distance, sel_angle);
-//	if (x < min_distance) {
-//		y = -0.2f;
-//	} else {
-//		y = this->dyn_linear_velocity_max_*(1.0f - std::exp(- (x - min_distance)/this->dyn_linear_velocity_decay_ ));
-//		//y = this->dyn_linear_velocity_max_;
-//	}
-//
-//	//y = this->compute_linear_velocity(x, min_distance, max_distance, min_vel, max_vel, weight);
-//
-//	return y;
-//}
 
 //float SharedDynamics::get_angular_velocity_repellors(ProximitySector& sectors) {
 //
