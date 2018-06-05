@@ -47,14 +47,16 @@ class SharedDynamics {
 		void on_received_attractors(const cnbiros_shared_navigation::ProximityGridMsg& data);
 
 		void on_publish_velocity(const ros::TimerEvent& event);
+		void on_target_elapsed(const ros::TimerEvent& event);
 		void reconfigure_callback(cnbiros_shared_navigation::SharedDynamicsConfig &config, uint32_t level);
 
 		// Utilities
 		float	rad2deg(float radians);
-		void	init_update_rate(float rate);
 		bool	update_if_different(const float& first, float& second, float epsilon = 0.00001f);
 		float	limit_range_value(float x, float minx, float maxx);
 		float	scale_range_value(float x, float min_abs_x, float max_abs_x, float min_abs_y, float max_abs_y);
+
+		void	init_update_rate(float rate);
 
 	private:
 		// Node handles
@@ -98,6 +100,7 @@ class SharedDynamics {
 		float		n_update_rate_;
 		ros::Rate* 	n_rate_;
 		ros::Timer  publish_timer_;
+		ros::Timer	target_timer_;
 		float		publish_frequency_;
 
 		// Velocity Dynamics
@@ -110,8 +113,9 @@ class SharedDynamics {
 		float	dyn_angular_attractors_strength_;
 		float	dyn_angular_repellors_decay_;
 		float	dyn_linear_velocity_decay_;
-		float	dyn_angular_attractor_;
-
+		
+		float	target_;
+		float	target_duration_;
 		geometry_msgs::Twist		velocity_;
 };
 		

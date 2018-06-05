@@ -61,8 +61,9 @@ bool SharedDynamics::configure(void) {
 	this->p_nh_.param<float>("angular_repellors_decay", this->dyn_angular_repellors_decay_, 0.8f);
 	this->p_nh_.param<float>("angular_attractors_strength", this->dyn_angular_attractors_strength_, 1.0f);
 	this->p_nh_.param<float>("linear_velocity_decay", this->dyn_linear_velocity_decay_, 1.0f);
+	this->p_nh_.param<float>("target_duration", this->target_duration_, 5.0f);
 
-	this->dyn_angular_attractor_ = 0.0f;
+	this->target_ = 0.0f;
 
 	// Initialize boolean states
 	this->is_data_available_ = false;
@@ -72,6 +73,10 @@ bool SharedDynamics::configure(void) {
 
 	// Create publish timer
 	this->publish_timer_ = this->p_nh_.createTimer(ros::Duration(1.0f/this->publish_frequency_), &SharedDynamics::on_publish_velocity, this);
+
+	// Create target timer
+	this->target_timer_ = this->nh_.createTimer(ros::Duration(this->target_duration_), &SharedDynamics::on_target_elapsed, this);
+	this->target_timer_.stop();
 
 	return true;
 }
@@ -106,7 +111,7 @@ void SharedDynamics::MakeVelocity(void) {
 	
 	// Compute orientation for attractors
 	if(this->n_enable_attractors_ == true) {
-		vangular_a = this->get_angular_velocity_attractors(this->dyn_angular_attractor_);
+		vangular_a = this->get_angular_velocity_attractors(this->target_);
 		ROS_DEBUG_NAMED("velocity_attractors", "Attractors angular velocity: %f [deg/s]", rad2deg(vangular_a));
 	}
 
@@ -131,8 +136,8 @@ void SharedDynamics::MakeVelocity(void) {
 
 
 	// Fill the Twist message
-	this->velocity_.linear.x	= 0.0;
-	//this->velocity_.linear.x	= vlinear;
+	//this->velocity_.linear.x	= 0.0;
+	this->velocity_.linear.x	= vlinear;
 	this->velocity_.linear.y	= 0.0;
 	this->velocity_.linear.z	= 0.0;
 	this->velocity_.angular.x	= 0.0;
@@ -204,7 +209,7 @@ float SharedDynamics::get_angular_velocity_attractors(float angle) {
 
 	w =  this->dyn_angular_attractors_strength_*std::sin(hangle - angle);
 
-	printf("angle attractor: %f\n", angle);
+	printf("angle attractor: %3.2f | angular velocity attractor: %3.2f\n", angle, w );
 	return w;
 }
 
@@ -278,6 +283,12 @@ void SharedDynamics::on_publish_velocity(const ros::TimerEvent& event) {
 					this->velocity_.linear.x, this->rad2deg(this->velocity_.angular.z));
 }
 
+void SharedDynamics::on_target_elapsed(const ros::TimerEvent& event) {
+
+	this->target_ = 0.0f;
+	ROS_INFO("Target duration elapsed (%3.2f s)", this->target_duration_);
+}
+
 float SharedDynamics::scale_range_value(float x, float minx, float maxx, float miny, float maxy) {
 
 	float	absx;
@@ -337,7 +348,9 @@ void SharedDynamics::on_received_attractors(const cnbiros_shared_navigation::Pro
 		if(std::isinf(grid.GetSectorValue(it)) == true || std::isnan(grid.GetSectorValue(it)) == true )
 			continue;
 
-		this->dyn_angular_attractor_ = grid.GetSectorAngle(it) + grid.GetAngleIncrement()/2.0f;
+		this->target_ = grid.GetSectorAngle(it) + grid.GetAngleIncrement()/2.0f;
+		this->target_timer_.stop();
+		this->target_timer_.start();
 	}
 
 }
@@ -391,6 +404,12 @@ void SharedDynamics::reconfigure_callback(cnbiros_shared_navigation::SharedDynam
 		this->init_update_rate(this->n_update_rate_);
 	}
 	
+	// Target duration
+	if(this->update_if_different(config.target_duration, this->target_duration_)) {
+		ROS_WARN("Updated target duration to %f", this->target_duration_);
+	    this->target_timer_.setPeriod(ros::Duration(this->target_duration_), true);
+	}
+	
 	// Publish frequency
 	if(this->update_if_different(config.publish_frequency, this->publish_frequency_)) {
 		ROS_WARN("Updated publish frequency to %f", this->publish_frequency_);
@@ -422,6 +441,8 @@ bool SharedDynamics::update_if_different(const float& first, float& second, floa
 
 	return is_different;
 }
+
+
 
 //float SharedDynamics::get_angular_velocity_repellors(sensor_msgs::LaserScan& scan) {
 //
