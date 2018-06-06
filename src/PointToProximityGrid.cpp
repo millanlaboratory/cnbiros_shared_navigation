@@ -33,7 +33,7 @@ bool PointToProximityGrid::configure(void) {
 	this->rate_ = nullptr;
 
 	// Getting parameters
-	this->private_nh_.param<std::string>("source", this->stopic_, "/point");
+	this->private_nh_.param<std::string>("source", this->stopic_, "/bci_command");
 	this->private_nh_.param<std::string>("grid", this->ptopic_, "/proximity_grid");
 	this->private_nh_.param<std::string>("frame_id", frame_id, "hokuyo_link");
 	this->private_nh_.param<float>("angle_min",  angle_min, -120.0f);
