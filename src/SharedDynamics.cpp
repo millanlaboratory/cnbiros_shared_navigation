@@ -21,6 +21,12 @@ SharedDynamics::SharedDynamics(void) : p_nh_("~") {
     this->s_attractors_ = this->p_nh_.subscribe(this->t_attractors_, 1, &SharedDynamics::on_received_attractors, this);
 	// Initialiaze publishers
 	this->p_velocity_	   = this->p_nh_.advertise<geometry_msgs::Twist>(this->t_velocity_, 1);
+
+	// Initialize services
+	this->srv_enable_ = this->p_nh_.advertiseService("navigation_enable", &SharedDynamics::on_requested_enable, this);
+	this->srv_disable_ = this->p_nh_.advertiseService("navigation_disable", &SharedDynamics::on_requested_disable, this);
+	this->srv_start_ = this->p_nh_.advertiseService("navigation_start", &SharedDynamics::on_requested_start, this);
+	this->srv_stop_  = this->p_nh_.advertiseService("navigation_stop", &SharedDynamics::on_requested_stop, this);
 }
 
 SharedDynamics::~SharedDynamics(void) {
@@ -41,6 +47,7 @@ bool SharedDynamics::configure(void) {
 	// Getting parameters
 	this->p_nh_.param<bool>("enable_repellors",	 this->n_enable_repellors_, true);
 	this->p_nh_.param<bool>("enable_attractors", this->n_enable_attractors_, true);
+	this->p_nh_.param<bool>("enable_autostart", this->n_autostart_, false);
 	this->p_nh_.param<float>("update_rate",	this->n_update_rate_, 10.0f);
 	this->p_nh_.param<float>("publish_frequency",	this->publish_frequency_, 10.0f);
 
@@ -68,6 +75,14 @@ bool SharedDynamics::configure(void) {
 	// Initialize boolean states
 	this->is_data_available_ = false;
 
+	// Initialize autostart
+	this->Enable();
+	this->Stop();
+	if(this->n_autostart_ == true) {
+		ROS_INFO("[SharedDynamics] Autostart is active.");
+		this->Start();
+	}
+
 	// Initialize update rate
 	this->init_update_rate(this->n_update_rate_);
 
@@ -86,8 +101,10 @@ void SharedDynamics::Run(void) {
 
 	while(this->nh_.ok()) {
 
-		// Compute velocity
-		this->MakeVelocity();
+		if(this->IsEnabled() == true) {
+			// Compute velocity
+			this->MakeVelocity();
+		}
 
 		ros::spinOnce();
 		this->n_rate_->sleep();
@@ -145,6 +162,41 @@ void SharedDynamics::MakeVelocity(void) {
 	this->velocity_.angular.z	= -vangular_scaled;
 }
 
+bool SharedDynamics::IsEnabled(void) {
+	return this->is_enabled_;
+}
+
+void SharedDynamics::Disable(void) {
+	this->is_enabled_ = false;
+	this->Stop();
+	ROS_WARN("[SharedDynamics] Node has been disabled");
+}
+
+void SharedDynamics::Enable(void) {
+	this->is_enabled_ = true;
+	ROS_WARN("[SharedDynamics] Node has been enabled");
+}
+
+bool SharedDynamics::IsRunning(void) {
+	return this->is_running_;
+}
+
+void SharedDynamics::Start(void) {
+	this->is_running_ = true;
+	ROS_WARN("[SharedDynamics] Node has been started");
+}
+
+void SharedDynamics::Stop(void) {
+	this->is_running_ = false;
+	this->velocity_.linear.x	= 0.0f;
+	this->velocity_.linear.y	= 0.0f;
+	this->velocity_.linear.z	= 0.0f;
+	this->velocity_.angular.x	= 0.0f;
+	this->velocity_.angular.y	= 0.0f;
+	this->velocity_.angular.z	= 0.0f;
+	this->p_velocity_.publish(this->velocity_);
+	ROS_WARN("[SharedDynamics] Node has been stopped");
+}
 
 float SharedDynamics::get_angular_velocity_repellors(ProximityGrid& data) {
 
@@ -209,7 +261,7 @@ float SharedDynamics::get_angular_velocity_attractors(float angle) {
 
 	w =  this->dyn_angular_attractors_strength_*std::sin(hangle - angle);
 
-	printf("angle attractor: %3.2f | angular velocity attractor: %3.2f\n", angle, w );
+	//printf("angle attractor: %3.2f | angular velocity attractor: %3.2f\n", angle, w );
 	return w;
 }
 
@@ -277,15 +329,18 @@ bool SharedDynamics::is_projection_inside(float distance, float angle, float wid
 
 void SharedDynamics::on_publish_velocity(const ros::TimerEvent& event) {
 
-	this->p_velocity_.publish(this->velocity_);
+	if (this->IsEnabled() == true && this->IsRunning() == true) {
+		this->p_velocity_.publish(this->velocity_);
 
-	ROS_DEBUG_NAMED("velocity", "Published velocity: v=%3.2f [m/s], o=%3.2f [deg/s]", 
+		ROS_DEBUG_NAMED("velocity", "Published velocity: v=%3.2f [m/s], o=%3.2f [deg/s]", 
 					this->velocity_.linear.x, this->rad2deg(this->velocity_.angular.z));
+	}
 }
 
 void SharedDynamics::on_target_elapsed(const ros::TimerEvent& event) {
 
 	this->target_ = 0.0f;
+	this->target_timer_.stop();
 	ROS_INFO("Target duration elapsed (%3.2f s)", this->target_duration_);
 }
 
@@ -442,7 +497,41 @@ bool SharedDynamics::update_if_different(const float& first, float& second, floa
 	return is_different;
 }
 
+bool SharedDynamics::on_requested_enable(std_srvs::Empty::Request& req, 
+										 std_srvs::Empty::Response& res) {
 
+	if(this->IsEnabled() == false) {
+		this->Enable();
+	}
+	return true;
+}
+
+bool SharedDynamics::on_requested_disable(std_srvs::Empty::Request& req, 
+										 std_srvs::Empty::Response& res) {
+
+	if(this->IsEnabled() == true) {
+		this->Disable();
+	}
+	return true;
+}
+
+bool SharedDynamics::on_requested_start(std_srvs::Empty::Request& req, 
+										 std_srvs::Empty::Response& res) {
+
+	if(this->IsRunning() == false) {
+		this->Start();
+	}
+	return true;
+}
+
+bool SharedDynamics::on_requested_stop(std_srvs::Empty::Request& req, 
+										 std_srvs::Empty::Response& res) {
+
+	if(this->IsRunning() == true) {
+		this->Stop();
+	}
+	return true;
+}
 
 //float SharedDynamics::get_angular_velocity_repellors(sensor_msgs::LaserScan& scan) {
 //

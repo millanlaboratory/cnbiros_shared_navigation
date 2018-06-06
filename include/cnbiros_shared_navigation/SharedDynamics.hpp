@@ -6,8 +6,8 @@
 
 // ROS includes
 #include <ros/ros.h>
+#include <std_srvs/Empty.h>
 #include <dynamic_reconfigure/server.h>
-#include <sensor_msgs/LaserScan.h>
 
 // Package includes
 #include "cnbiros_shared_navigation/ProximityGrid.hpp"
@@ -29,11 +29,18 @@ class SharedDynamics {
 		bool configure(void);
 		void Run(void);
 
-
 		void MakeVelocity(void);
 		void SendVelocity(void);
 		void SendVelocity(float x, float w);
 		void ResetVelocity(void);
+
+		bool IsEnabled(void);
+		void Disable(void);
+		void Enable(void);
+		
+		bool IsRunning(void);
+		void Start(void);
+		void Stop(void);
 
 	private:
 
@@ -45,10 +52,14 @@ class SharedDynamics {
 		// Callbacks
 		void on_received_repellors(const cnbiros_shared_navigation::ProximityGridMsg& data);
 		void on_received_attractors(const cnbiros_shared_navigation::ProximityGridMsg& data);
-
 		void on_publish_velocity(const ros::TimerEvent& event);
 		void on_target_elapsed(const ros::TimerEvent& event);
 		void reconfigure_callback(cnbiros_shared_navigation::SharedDynamicsConfig &config, uint32_t level);
+		
+		bool on_requested_enable(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
+		bool on_requested_disable(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
+		bool on_requested_start(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
+		bool on_requested_stop(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
 
 		// Utilities
 		float	rad2deg(float radians);
@@ -75,6 +86,12 @@ class SharedDynamics {
 		// Publishers
 		ros::Publisher	p_velocity_;
 
+		// Services
+		ros::ServiceServer	srv_enable_;
+		ros::ServiceServer	srv_disable_;
+		ros::ServiceServer	srv_start_;
+		ros::ServiceServer	srv_stop_;
+
 		// Proximity grid
 		ProximityGrid	pr_repellors_;
 		//ProximityGrid   pr_attractors_;
@@ -92,6 +109,8 @@ class SharedDynamics {
 
 		// General boolean states
 		bool	is_data_available_;
+		bool	is_enabled_;
+		bool	is_running_;
 		
 		// General node variables
 		bool		n_autostart_;
