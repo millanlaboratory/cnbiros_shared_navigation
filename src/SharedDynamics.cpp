@@ -47,7 +47,6 @@ bool SharedDynamics::configure(void) {
 	// Getting parameters
 	this->p_nh_.param<bool>("enable_repellors",	 this->n_enable_repellors_, true);
 	this->p_nh_.param<bool>("enable_attractors", this->n_enable_attractors_, true);
-	this->p_nh_.param<bool>("enable_autostart", this->n_autostart_, false);
 	this->p_nh_.param<float>("update_rate",	this->n_update_rate_, 10.0f);
 	this->p_nh_.param<float>("publish_frequency",	this->publish_frequency_, 10.0f);
 
@@ -75,14 +74,10 @@ bool SharedDynamics::configure(void) {
 	// Initialize boolean states
 	this->is_data_available_ = false;
 
-	// Initialize autostart
+	// Initialize boolean
+	this->is_running_ = false;
 	this->Enable();
-	this->Stop();
-	if(this->n_autostart_ == true) {
-		ROS_INFO("[SharedDynamics] Autostart is active.");
-		this->Start();
-	}
-
+	
 	// Initialize update rate
 	this->init_update_rate(this->n_update_rate_);
 

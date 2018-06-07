@@ -113,7 +113,6 @@ class SharedDynamics {
 		bool	is_running_;
 		
 		// General node variables
-		bool		n_autostart_;
 		bool		n_enable_repellors_;
 		bool		n_enable_attractors_;
 		float		n_update_rate_;
