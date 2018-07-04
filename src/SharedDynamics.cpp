@@ -41,9 +41,6 @@ bool SharedDynamics::configure(void) {
 	this->t_attractors_	= "attractors"; 
 	this->t_velocity_	= "/cmd_vel";
 
-	this->size_right_	= 0.375f;
-	this->size_left_	= 0.375f;
-
 	// Getting parameters
 	this->p_nh_.param<bool>("enable_repellors",	 this->n_enable_repellors_, true);
 	this->p_nh_.param<bool>("enable_attractors", this->n_enable_attractors_, true);
@@ -52,6 +49,7 @@ bool SharedDynamics::configure(void) {
 
 	// Robot parameters
 	this->p_nh_.param<std::string>("base_frame", this->base_frame_, "base_link");
+	this->p_nh_.param<float>("size", this->size_, 0.75f);
 	
 	// Velocity Dynamics parameters 
 	this->p_nh_.param<float>("safe_distance_front", this->safe_distance_front_, 0.1f);
@@ -201,7 +199,7 @@ float SharedDynamics::get_angular_velocity_repellors(ProximityGrid& data) {
 	float cw;
 	float w = 0.0f;
 
-	float robot_width			= this->size_right_ + this->size_left_;
+	float robot_width			= this->size_;
 	float safe_distance_front	= this->safe_distance_front_;
 	float safe_distance_lateral	= this->safe_distance_lateral_;
 
@@ -272,7 +270,7 @@ float SharedDynamics::get_linear_velocity_repellors(ProximityGrid& data) {
 	float y;
 
 	x = 6.0f;
-	robot_width		    = this->size_right_ + this->size_left_ + 2.0f*this->safe_distance_lateral_;
+	robot_width		    = this->size_ + 2.0f*this->safe_distance_lateral_;
 	safe_distance_front = this->safe_distance_front_;
 
 	// Iterate over the sectors
@@ -408,6 +406,10 @@ void SharedDynamics::on_received_attractors(const cnbiros_shared_navigation::Pro
 void SharedDynamics::reconfigure_callback(cnbiros_shared_navigation::SharedDynamicsConfig &config, 
 										uint32_t level) {
 
+	// Angular minimum velocity
+	if(this->update_if_different(config.robot_size, this->size_))
+		ROS_WARN("Updated robot size to %f [m]", this->size_);
+	
 	// Angular minimum velocity
 	if(this->update_if_different(config.angular_velocity_min, this->dyn_angular_velocity_min_))
 		ROS_WARN("Updated angular velocity minimum to %f", this->dyn_angular_velocity_min_);

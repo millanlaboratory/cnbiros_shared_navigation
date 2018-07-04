@@ -102,8 +102,7 @@ class SharedDynamics {
 
 		// Robot
 		std::string		base_frame_;
-		float			size_right_;
-		float			size_left_;
+		float			size_;
 		float			safe_distance_front_;
 		float			safe_distance_lateral_;
 
